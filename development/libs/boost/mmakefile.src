@@ -10,7 +10,7 @@ ARCHSRCDIR := $(PORTSDIR)/boost/$(ARCHBASE)
 boostlib-buildflag := $(GENDIR)/$(CURDIR)/.buildflag-boostlib-$(BOOSTVERSION)-$(AROS_TARGET_CPU)
 boostlib-installflag := $(GENDIR)/$(CURDIR)/.installflag-boostlib-$(BOOSTVERSION)-$(AROS_TARGET_CPU)
 
-#MM- contrib-development : development-libs-boost
+#MM- contrib-development-complete : development-libs-boost
 #MM development-libs-boost : development-libs-boost-copy-src
 #MM- development-libs-boost-quick : development-libs-boost
 #MM- development-libs-boost-copy-src : compiler-boost-fetch
