@@ -1,5 +1,5 @@
 /*
-    Copyright © 2009, The AROS Development Team.
+    Copyright Â© 2009, The AROS Development Team.
     All rights reserved.
 
     $Id$
@@ -101,14 +101,14 @@
  - Implementare l'FXP
  - Aggiungere il resume sul download
  - Implementare il rename
- - Listbox selezionabili così posso togliere doppi button per le due differenti listview
+ - Listbox selezionabili cosÃ¬ posso togliere doppi button per le due differenti listview
  - Mettere il sort da colonna nelle NListe
  - Criptare le password
                    
  -  Ottimizzare il download, Write() viene chiamata ad ogni evento socket, mettere in un buffer
         i dati e scriverli dopo
--  <AlieM> devi aggiungere a mFTP anche un controllo sullo spazio disponibile, così (se già lo sai) evita 
-   di scaricare file a metà
+-  <AlieM> devi aggiungere a mFTP anche un controllo sullo spazio disponibile, cosÃ¬ (se giÃ  lo sai) evita 
+   di scaricare file a metÃ 
 
         DONE
  
@@ -140,7 +140,7 @@
            processare la prima directory che si trova nello stack stack[stack_cur]
            goto loop
 
-[00:23] <olivier2222> MUIA_Application_Version, (IPTR) "$VER: MyApp 0.1 (dd.mm.yyyy) © AROS Dev Team"
+[00:23] <olivier2222> MUIA_Application_Version, (IPTR) "$VER: MyApp 0.1 (dd.mm.yyyy) Â© AROS Dev Team"
 [00:24] <olivier2222> MUIA_Application_Description,  __(MSG_DESCRIPTION),
 [00:24] <olivier2222> with __() the macro for localization, in this ex
 [00:24] <olivier2222> because you want the exchange application description field to be localized
@@ -265,7 +265,7 @@ static struct NewMenu Menus[] = {
 #define STACK_BOTTOM (7)
 #define STACK_CURRENT (0)
 int recv_command_stack[STACK_BOTTOM+1];
-char sent_command_stack[512][STACK_BOTTOM+1];
+char sent_command_stack[STACK_BOTTOM+1][512];
 
 TimerVal g_listen_timer, g_last_packet_transfered_timer, g_trying_connect_timer, g_transfer_start_timer, g_gui_update_timer;
 char g_temp[1024];
@@ -415,6 +415,8 @@ void LoadConfig(Connection *cn);
 void LoadConfig2(Connection *cn);
 int MemReadString(char *dest, char **ptr, int len, int maxlen);
 int MemReadDword(char **ptr);
+int SendEPSVCMD(Connection *cn);
+int GatherEpsvPortNumber(Connection *cn);
 
 #ifdef __AROS__
 AROS_UFH3(void, KeyPressFunc,
@@ -661,7 +663,7 @@ ULONG QueueViewDispFunc(struct Hook *MyHook, char **strings, QueueColumn *data)
                     break;
 
             case STATUS_ERROR:
-                    strings[2] = "COMPLETED";
+                    strings[2] = "ERROR";
                     break;
 
             case STATUS_QUEUED:
@@ -942,8 +944,8 @@ int main(int argc,char *argv[])
     /* MUI Gui Definition */    
     app = ApplicationObject,
         MUIA_Application_Title, (IPTR) "MarranoFTP",
-        MUIA_Application_Version, (IPTR) "$VER: MarranoFTP 0.71 (22.06.2010) © Stefano Crosara aka Suppah at marranosoft@gmail.com",
-        MUIA_Application_Copyright, (IPTR) "© Stefano Crosara aka Suppah",
+        MUIA_Application_Version, (IPTR) "$VER: MarranoFTP 0.71 (22.06.2010) Â© Stefano Crosara aka Suppah at marranosoft@gmail.com",
+        MUIA_Application_Copyright, (IPTR) "Â© Stefano Crosara aka Suppah",
         MUIA_Application_Author, (IPTR) "Stefano Crosara",
         MUIA_Application_Description,  (IPTR) "A very 'marrano' FTP client",
         MUIA_Application_Base, (IPTR) "MarranoFTP",
@@ -952,7 +954,7 @@ int main(int argc,char *argv[])
 
         // Main FTP Browse Window(s)
         SubWindow, (IPTR)(cn->Window = WindowObject,
-            MUIA_Window_Title, (IPTR) "MarranoFTP 0.71 (22.06.2010) © Stefano Crosara aka Suppah at marranosoft@gmail.com",
+            MUIA_Window_Title, (IPTR) "MarranoFTP 0.71 (22.06.2010) Â© Stefano Crosara aka Suppah at marranosoft@gmail.com",
             MUIA_Window_Width, MUIV_Window_Width_Visible(100),
             MUIA_Window_Height, MUIV_Window_Height_Visible(90),  /*  changed main window height from 100% to 90% and from MinMax to Visible*/
             MUIA_Window_ID, MAKE_ID('M','F','T','P'),
@@ -1353,7 +1355,8 @@ int main(int argc,char *argv[])
     DoMethod(g_AddressBook.BTN_NEW, MUIM_Notify, MUIA_Pressed, FALSE, app, 2, MUIM_Application_ReturnID, ID_SITE_WINDOW_CLICKED_NEW);
     DoMethod(g_AddressBook.BTN_CHANGE, MUIM_Notify, MUIA_Pressed, FALSE, app, 2, MUIM_Application_ReturnID, ID_SITE_WINDOW_CLICKED_CHANGE);
     DoMethod(g_AddressBook.BTN_DELETE, MUIM_Notify, MUIA_Pressed, FALSE, app, 2, MUIM_Application_ReturnID, ID_SITE_WINDOW_CLICKED_DELETE);
-    DoMethod(g_AddressBook.BTN_SAVE, MUIM_Notify, MUIA_Pressed, FALSE, app, 2, MUIM_Application_ReturnID, ID_SITE_WINDOW_CLICKED_SAVE);
+    if (g_AddressBook.BTN_SAVE)
+        DoMethod(g_AddressBook.BTN_SAVE, MUIM_Notify, MUIA_Pressed, FALSE, app, 2, MUIM_Application_ReturnID, ID_SITE_WINDOW_CLICKED_SAVE);
     DoMethod(g_AddressBook.BTN_EXIT, MUIM_Notify, MUIA_Pressed, FALSE, app, 2, MUIM_Application_ReturnID, ID_SITE_WINDOW_CLICKED_EXIT);
     DoMethod(g_AddressBook.BTN_HostsFullOk, MUIM_Notify, MUIA_Pressed, FALSE, app, 2, MUIM_Application_ReturnID, ID_SITE_WINDOW_FULL_HOSTS_WINDOW_OK);
     DoMethod(g_AddressBook.LV_HOSTS, MUIM_Notify, MUIA_NList_DoubleClick, MUIV_EveryTime, app, 2, MUIM_Application_ReturnID, ID_DBLCLICKED_SITE_WINDOW_HOSTS);
@@ -1890,7 +1893,8 @@ void HandleDownload(Connection *cn)
                         // SendFtpCommand(cn, "ABOR", FALSE);
                 }
         
-                res = recv(ci->transfer_socket, &cn->transfer_buffer.ptr[ci->bytes_transfered], 65535, 0);
+                res = recv(ci->transfer_socket, &cn->transfer_buffer.ptr[ci->bytes_transfered],
+                        cn->transfer_buffer.size - ci->bytes_transfered, 0);
         } else {
                 #ifdef DEBUG
                 DebugOutput("MainLoop(): FILE TRANSFER\n");
@@ -1915,7 +1919,7 @@ void HandleDownload(Connection *cn)
                                 ci->filehandle = 0;
                                 AbortFileTransfer(cn);
                                 // SendFtpCommand(cn, "ABOR", FALSE);
-                                sprintf(temp, "STATUS: Transfer failed, '%d' error during file write", local_errno);
+                                snprintf(temp, sizeof(temp), "STATUS: Transfer failed, '%d' error during file write", local_errno);
                                 MUI_AddStatusWindow(cn, temp);
                                 cn->ci.b_last_data = TRUE;
                         }
@@ -1997,7 +2001,7 @@ void HandleUpload(Connection *cn)
         
         AbortFileTransfer(cn);
                 // SendFtpCommand(cn, "ABOR", FALSE);
-                sprintf(temp, "ERROR: Transfer failed, '%d' error during file read", local_errno);
+                snprintf(temp, sizeof(temp), "ERROR: Transfer failed, '%d' error during file read", local_errno);
                 MUI_AddStatusWindow(cn, temp);
                 res = -1;
         } else {
@@ -2186,7 +2190,7 @@ void DisplaySockErrs(Connection *cn, CSOCK *csock)
                         break;
                                 
                 case CSOCKERR_NATIVE:
-                        sprintf(temp, "ERROR: socket error '%s'", strerror(csock->sockerr));
+                        snprintf(temp, sizeof(temp), "ERROR: socket error '%s'", strerror(csock->sockerr));
                         MUI_AddStatusWindow(cn, temp);
                         break;
         }
@@ -2251,7 +2255,7 @@ BOOL FtpConnect(Connection *cn)
 
 int SockConnect(CSOCK *csock)
 {
-    int ret, status, socket = 1;
+    int ret, status, sock = 1;
     struct sockaddr_in sockaddr;
 
     csock->socket = INVALID_SOCKET;
@@ -2267,28 +2271,28 @@ int SockConnect(CSOCK *csock)
     DebugOutput("SockConnect()\n");
 #endif
 
-    socket = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
-    if (socket != INVALID_SOCKET)
+    sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+    if (sock != INVALID_SOCKET)
     {
 #ifdef DEBUG
-        printf("SockConnect(): socket = %d\n", socket);
+        printf("SockConnect(): socket = %d\n", sock);
         DebugOutput("SockConnect(): Socket created\n");
 #endif
-        csock->socket = socket;
+        csock->socket = sock;
 
         /* server address  */
         sockaddr.sin_family = AF_INET;
         sockaddr.sin_addr.s_addr = INADDR_ANY;
         sockaddr.sin_port = 0;
 
-        status = bind(socket, (struct sockaddr *) &sockaddr, sizeof(struct sockaddr_in));
+        status = bind(sock, (struct sockaddr *) &sockaddr, sizeof(struct sockaddr_in));
         if (status != INVALID_SOCKET)
         {
 #ifdef DEBUG
             DebugOutput("SockConnect(): Socket binded\n");
 #endif
 
-            if (SetBlocking(socket, FALSE) == FALSE) {
+            if (SetBlocking(sock, FALSE) == FALSE) {
                 // If SetBlocking fails, we can't continue because later
                 // code is made for non blocking sockets
                 csock->csockerr = CSOCKERR_SETNONBLOCKFAILED;
@@ -2308,7 +2312,7 @@ int SockConnect(CSOCK *csock)
             DebugOutput("SockConnect(): Trying to connect..\n");
 #endif
 
-            ret = connect(socket, (struct sockaddr *) &sockaddr, sizeof(struct sockaddr_in));
+            ret = connect(sock, (struct sockaddr *) &sockaddr, sizeof(struct sockaddr_in));
             if (ret == -1) {
                 int local_errno = errno;
 
@@ -2328,7 +2332,7 @@ int SockConnect(CSOCK *csock)
 
                 csock->csockerr = CSOCKERR_NATIVE;
                 csock->sockerr  = ret;
-                csock->socket = socket;
+                csock->socket = sock;
                 return CSOCKSTATUS_ERROR;
             } else if (ret == 0) {
                 // Connect already connected us to the ftp server
@@ -2336,12 +2340,12 @@ int SockConnect(CSOCK *csock)
                 DebugOutput("SockConnect(): Already accepted a connection\n");
 #endif
 
-                csock->socket = socket;
+                csock->socket = sock;
                 return CSOCKSTATUS_EARLYCONNECT;
             } else {
                 csock->csockerr = CSOCKERR_NATIVE;
                 csock->sockerr  = errno;
-                csock->socket = socket;
+                csock->socket = sock;
                 return CSOCKSTATUS_ERROR;
             }
         } else
@@ -2440,8 +2444,10 @@ void FormatFtpListing(Connection *cn, buffer *buffer, BOOL b_last_data)
             dest[i] = 0;
             
             // Add the start of the line in the lines database
-            cn->rv.num_lines++;
-            cn->rv.lines_start[cn->rv.num_lines-1] = start_of_line;
+            if (cn->rv.num_lines < 16384) {
+                cn->rv.num_lines++;
+                cn->rv.lines_start[cn->rv.num_lines-1] = start_of_line;
+            }
             start_of_line = 1+i;
         }
     }
@@ -2499,7 +2505,7 @@ void InvalidateSocket(int *socket)
 {
 #ifdef DEBUG
     char temp[512];
-    sprintf(temp, "InvalidateSocket(): Closing socket %d\n", *socket);
+    snprintf(temp, sizeof(temp), "InvalidateSocket(): Closing socket %d\n", *socket);
     DebugOutput(temp);
 #endif
 
@@ -2610,7 +2616,7 @@ int SendSTORCMD(Connection *cn, char *filename)
         ioerr = IoErr();
         Fault(ioerr, "", temp3, 511);
         ci->b_file_transfer = FALSE;
-        sprintf(temp2, "ERROR: Cannot open local file '%s', Open() failed, error '%s'", temp, temp3);
+        snprintf(temp2, sizeof(temp2), "ERROR: Cannot open local file '%s', Open() failed, error '%s'", temp, temp3);
         MUI_AddStatusWindow(cn, temp2);
         CloseListenSocket(cn);
         CloseDataSocket(cn);
@@ -2702,8 +2708,10 @@ int GetFtpCommand(struct buffer *buffer, Connection *cn)
             if (need_break_after_newline == FALSE) {
                 // If the server is still sending data, we add each line in the array
                 linestart = 1+readed;
-                cn->rv.num_lines++;
-                cn->rv.lines_start[cn->rv.num_lines-1] = linestart;
+                if (cn->rv.num_lines < 16384) {
+                    cn->rv.num_lines++;
+                    cn->rv.lines_start[cn->rv.num_lines-1] = linestart;
+                }
             } else {
                 // Server finished sending data
                 done = TRUE;
@@ -2852,7 +2860,7 @@ void ProcessCommand(Connection *cn, int command, int *mui_res)
                     CleanSockAndFlags(cn);
                     if (cn->ci.b_request_quit)
                         *mui_res = MUIV_Application_ReturnID_Quit;
-                } else if (IsLastSentCmd("PORT") || IsLastSentCmd("PASV")) {
+                } else if (IsLastSentCmd("PORT") || IsLastSentCmd("PASV") || IsLastSentCmd("EPSV")) {
                     b_goon = TRUE;
                     if (hi->conn_type == CTYPE_PASV) {
 #ifdef DEBUG
@@ -2860,7 +2868,13 @@ void ProcessCommand(Connection *cn, int command, int *mui_res)
 #endif
 
                         // Gets detail for passive connection
-                        if (GatherIpPortNumber(cn) != 0) {
+                        int pasv_ok;
+                        if (IsLastSentCmd("EPSV"))
+                            pasv_ok = GatherEpsvPortNumber(cn);
+                        else
+                            pasv_ok = GatherIpPortNumber(cn);
+
+                        if (pasv_ok != 0) {
                             // Tries to connect to specified ip - port
                             // ASD
                             ret = PasvConnection(cn);
@@ -2908,8 +2922,8 @@ void ProcessCommand(Connection *cn, int command, int *mui_res)
                         // Active transfer mode
                         SetTransferPort(cn);
                     } else {
-                        // Passive transfer mode
-                        SendPASVCMD(cn);
+                        // Passive transfer mode â€” try EPSV first, fall back to PASV
+                        SendEPSVCMD(cn);
                     }
                 }
                 break;
@@ -2947,7 +2961,10 @@ void ProcessCommand(Connection *cn, int command, int *mui_res)
                 // Permanent Negative Completion reply
                 cn->ci.b_can_send_command = TRUE;
 /********************************************* DIGIT 5 *****************************************/
-                if (IsLastSentCmd("RETR") || IsLastSentCmd("LIST") || IsLastSentCmd("STOR")) {
+                if (IsLastSentCmd("EPSV")) {
+                    // EPSV not supported by server, fall back to PASV
+                    SendPASVCMD(cn);
+                } else if (IsLastSentCmd("RETR") || IsLastSentCmd("LIST") || IsLastSentCmd("STOR")) {
                     snprintf(temp, 511, "STATUS: Server error encountered, file unavailable, closed port %d", ci->port); 
                     MUI_AddStatusWindow(cn, temp);
                     CloseListenSocket(cn);
@@ -2960,14 +2977,14 @@ void ProcessCommand(Connection *cn, int command, int *mui_res)
     }
     
 #ifdef DEBUGLV2
-    sprintf(temp, "ProcessCommand(): CMD(%d) = %s digit = %d\n", command, (ci->b_can_send_command) ? "TRUE" : "FALSE", digit);
+    snprintf(temp, sizeof(temp), "ProcessCommand(): CMD(%d) = %s digit = %d\n", command, (ci->b_can_send_command) ? "TRUE" : "FALSE", digit);
     DebugOutput(temp);
 #endif
 }
 
 BOOL OpenListenSocket(Connection *cn)
 {
-    int status, socket = INVALID_SOCKET, ret;
+    int status, sock = INVALID_SOCKET, ret;
     struct sockaddr_in sockaddr;
     ClientInfo *ci = &cn->ci;
     BOOL b_ret = FALSE;
@@ -2986,8 +3003,8 @@ BOOL OpenListenSocket(Connection *cn)
 #ifdef DEBUG
     DebugOutput("OpenListenSocket(): Creating listen socket\n");
 #endif
-    socket = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
-    if (socket != INVALID_SOCKET)
+    sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+    if (sock != INVALID_SOCKET)
     {	
 #ifdef DEBUG
         DebugOutput("OpenListenSocket(): Socket created\n");
@@ -2998,7 +3015,7 @@ BOOL OpenListenSocket(Connection *cn)
         sockaddr.sin_addr.s_addr = INADDR_ANY;
         sockaddr.sin_port = 0;
         
-        status = bind(socket, (struct sockaddr *) &sockaddr, sizeof(struct sockaddr_in));
+        status = bind(sock, (struct sockaddr *) &sockaddr, sizeof(struct sockaddr_in));
         if (status != INVALID_SOCKET)
         {
 #ifdef DEBUG
@@ -3007,10 +3024,10 @@ BOOL OpenListenSocket(Connection *cn)
             
             // Get the port of the socket 
             status = sizeof(struct sockaddr);
-            getsockname(socket, (struct sockaddr *) &sockaddr, &status);
+            getsockname(sock, (struct sockaddr *) &sockaddr, &status);
             ci->port = htons(sockaddr.sin_port);
             
-            if (SetBlocking(socket, FALSE) == FALSE) {
+            if (SetBlocking(sock, FALSE) == FALSE) {
                 // If SetBlocking fails, we can't continue because later
                 // code is made for non blocking sockets
 #ifdef DEBUG
@@ -3021,7 +3038,7 @@ BOOL OpenListenSocket(Connection *cn)
             }
             
             opt = 1;
-            if (setsockopt(socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1) {
+            if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1) {
 #ifdef DEBUG
                 DebugOutput("OpenListenSocket(): Cannot set addr to reuse\n");
 #endif
@@ -3033,7 +3050,7 @@ BOOL OpenListenSocket(Connection *cn)
             
 #ifndef __AROS__
             opt = 1;
-            if (setsockopt(socket, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)) == -1) {
+            if (setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)) == -1) {
 #ifdef DEBUG
                 DebugOutput("OpenListenSocket(): Cannot set port to reuse\n");
 #endif
@@ -3045,7 +3062,7 @@ BOOL OpenListenSocket(Connection *cn)
 #endif
             
             // Setting the socket to listen state
-            ret = listen(socket, 1);
+            ret = listen(sock, 1);
             if (ret == 0) {
                 cn->ci.b_waitingfordataport = TRUE;
                 snprintf(temp, 511, "STATUS: Listening on port %d", ci->port);
@@ -3057,8 +3074,8 @@ BOOL OpenListenSocket(Connection *cn)
                 StartTimer(&g_listen_timer);
             } else {
                 cn->ci.b_waitingfordataport = FALSE;
-                CloseSocket(socket);
-                socket = INVALID_SOCKET;
+                CloseSocket(sock);
+                sock = INVALID_SOCKET;
 #ifdef DEBUG
                 DebugOutput("OpenListenSocket(): Listen() failed on data socket\n");
 #endif
@@ -3069,7 +3086,7 @@ BOOL OpenListenSocket(Connection *cn)
         }
     }
     
-    ci->listen_socket = socket;
+    ci->listen_socket = sock;
     return b_ret;
 }
 
@@ -3118,9 +3135,9 @@ BOOL CloseDataSocket(Connection *cn)
 #endif
             return FALSE;
         }
-
-        InvalidateSocket(&ci->transfer_socket);
     }
+
+    InvalidateSocket(&ci->transfer_socket);
 
     cn->ci.b_transfering = FALSE;
     ci->port = ci->file_readed = ci->file_size = ci->file_sent = 0;
@@ -3267,7 +3284,7 @@ BOOL CheckSockForErrors(Connection *cn, SOCKET *socket)
 {
     ClientInfo *ci = &cn->ci;
     BOOL b_ret = FALSE;
-    int ret, optlen;
+    int ret, optlen = sizeof(ret);
 
     getsockopt (*socket, SOL_SOCKET, SO_ERROR, &ret, &optlen);
     if (ret != 0) {
@@ -3325,7 +3342,7 @@ void CleanSockAndFlags(Connection *cn)
 //	cn->ci.b_request_disconn =
 //	cn->ci.b_request_quit =
 
-    MUI_AddStatusWindow(cn, "STAUTS: Disconnected");
+    MUI_AddStatusWindow(cn, "STATUS: Disconnected");
 }
 
 /* Timer Stuff */
@@ -3412,7 +3429,7 @@ int GetCommandDigit(int command, int digit)
 {
     int numbas[3];
 
-    if ((unsigned) digit > 3) {
+    if (digit < 1 || digit > 3) {
 #ifdef DEBUG
         DebugOutput("GetCommandDigit(): Wrong digit requested at GetCommandDigit() function\n");
 #endif
@@ -3448,7 +3465,7 @@ void ProcessDirectoryData(Connection *cn)
         return;
     } else {
 #ifdef DEBUG
-        sprintf(temp, "ProcessDirectoryData(): Processing dirlisting, ci->bytes_transfered = %d\n", ci->bytes_transfered);
+        snprintf(temp, sizeof(temp), "ProcessDirectoryData(): Processing dirlisting, ci->bytes_transfered = %d\n", ci->bytes_transfered);
         DebugOutput(temp);
 #endif
     }
@@ -3480,7 +3497,7 @@ void ProcessDirectoryData(Connection *cn)
 
                 vc.name = BufferAddStr(&cn->rv.ListBuffer, &cn->transfer_buffer.ptr[cn->rv.lines_start[i]+last]);
                 vc.flags = BufferAddStr(&cn->rv.ListBuffer, dirflags);
-                sprintf(temp, "%s %s %s", month, date, time_or_year);
+                snprintf(temp, sizeof(temp), "%s %s %s", month, date, time_or_year);
                 vc.date = BufferAddStr(&cn->rv.ListBuffer, temp);
             } else {
                 // We did not find the ninenth string, fallback to old formatting style
@@ -3890,7 +3907,7 @@ int InitiateFileDeletion(Connection *cn, char *filename)
 {
     char temp[512];
 
-    sprintf(temp, "DELE %s", filename);
+    snprintf(temp, sizeof(temp), "DELE %s", filename);
     SendFtpCommand(cn, temp, FALSE);
     return ANSWER_PENDING;
 }
@@ -3960,7 +3977,7 @@ int SendMKDCMD(Connection *cn, char *pathname)
 {
     char temp[512];
 
-    sprintf(temp, "MKD %s", pathname);
+    snprintf(temp, sizeof(temp), "MKD %s", pathname);
     SendFtpCommand(cn, temp, FALSE);
     return ANSWER_PENDING;
 }
@@ -3970,6 +3987,41 @@ int SendPASVCMD(Connection *cn)
     SendFtpCommand(cn, "PASV", FALSE);
     cn->ci.b_passive = TRUE;
     return ANSWER_PENDING;
+}
+
+int SendEPSVCMD(Connection *cn)
+{
+    SendFtpCommand(cn, "EPSV", FALSE);
+    cn->ci.b_passive = TRUE;
+    return ANSWER_PENDING;
+}
+
+/* Parse EPSV 229 response: "229 Entering Extended Passive Mode (|||port|)"
+ * Returns the port number, or 0 on parse failure. */
+int GatherEpsvPortNumber(Connection *cn)
+{
+    char *ptr;
+    int port = 0;
+
+    ptr = strchr(cn->cmd_buffer.ptr, '(');
+    if (ptr) {
+        /* Skip past "(|||" */
+        ptr++;
+        if (*ptr == '|') ptr++;
+        if (*ptr == '|') ptr++;
+        if (*ptr == '|') ptr++;
+        port = atoi(ptr);
+    }
+
+    if (port > 0 && port <= 65535) {
+        /* Use the control connection's IP with the parsed port */
+        cn->hi.pasvsettings.ip_i = cn->hi.ip_i;
+        cn->hi.pasvsettings.port = port;
+        return port;
+    }
+
+    MUI_AddStatusWindow(cn, "ERROR: Cannot parse EPSV response");
+    return 0;
 }
 
 void AfterRETR(Connection *cn)
@@ -4087,8 +4139,8 @@ BOOL LocalDirScan(Connection *cn, char *pathname, char *basepath, int base_start
             }
 
             // Changes remote directory
-            sprintf(temp, "%s/%s", cn->rv.QueueBasePath, &curdir[base_start+1]);
-            ptr = QueuePushAddStr(cn, &cn->queue_buffer, temp, CMD_REMOTE_CHDIR, 0, 0, FALSE);
+            snprintf(temp, sizeof(temp), "%s/%s", cn->rv.QueueBasePath, &curdir[base_start+1]);
+             ptr = QueuePushAddStr(cn, &cn->queue_buffer, temp, CMD_REMOTE_CHDIR, 0, 0, FALSE);
             if (ptr == 0) {
                 UnLock(lock);
                 return FALSE;
@@ -4098,7 +4150,7 @@ BOOL LocalDirScan(Connection *cn, char *pathname, char *basepath, int base_start
                 while ((ExNext(lock, fib) != DOSFALSE)) {
                     if (fib->fib_DirEntryType == ST_USERDIR) {
                         // Adds the directory to the walk stack
-                        sprintf(temp, "%s/%s", curdir, fib->fib_FileName);
+                        snprintf(temp, sizeof(temp), "%s/%s", curdir, fib->fib_FileName);
                         ptr = BufferAddStr(&cn->temp_buffer, temp);
                         if (ptr == 0) {
                             MUI_AddStatusWindow(cn, "ERROR: The temporary buffer is full, cannot continue with directory scanning");
@@ -4114,7 +4166,7 @@ BOOL LocalDirScan(Connection *cn, char *pathname, char *basepath, int base_start
                         cn->StackStack[cn->stack_cur].data = ptr;
 
                         // Adds the directory to the queue, createdir
-                        sprintf(temp, "%s/%s/%s", cn->rv.QueueBasePath, &curdir[base_start+1], fib->fib_FileName);
+                        snprintf(temp, sizeof(temp), "%s/%s/%s", cn->rv.QueueBasePath, &curdir[base_start+1], fib->fib_FileName);
                         ptr = QueuePushAddStr(cn, &cn->queue_buffer, temp, CMD_REMOTE_MKDIR, 0, 0, FALSE);
                         if (ptr == 0) {
                             UnLock(lock);
@@ -4142,7 +4194,7 @@ BOOL LocalDirScan(Connection *cn, char *pathname, char *basepath, int base_start
             caf_strncpy(curdir, cn->StackStack[cn->stack_cur].data, 512);
             cn->stack_cur++;
         } else {
-            sprintf(temp, "Locking of '%s' failed\n", curdir);
+            snprintf(temp, sizeof(temp), "Locking of '%s' failed\n", curdir);
             MUI_AddStatusWindow(cn, temp);
         }
     }
@@ -4189,6 +4241,16 @@ void LoadConfig()
     }
 }
 */
+
+/* Simple password obfuscation â€” prevents casual reading of config files.
+ * Uses position-dependent XOR so identical characters don't produce
+ * identical output bytes. Not cryptographic security. */
+static void ObfuscatePassword(char *buf, int len)
+{
+    int j;
+    for (j = 0; j < len; j++)
+        buf[j] ^= (0xA5 ^ (j & 0x1F));
+}
 
 void LoadConfig(Connection *cn)
 {
@@ -4237,8 +4299,8 @@ void LoadConfig(Connection *cn)
                             // Read connection timeout
                             itemp = MemReadDword(&ptr);
                             g_GlobalSettings.SettingsArray[SETTING_TRANSFER_TIMEOUT] = itemp;
-                            if (itemp == CONFIG_VERSION1) {
-                                // Found config version 2
+                            if (itemp == CONFIG_VERSION1 || itemp == CONFIG_VERSION2) {
+                                // Found new config format (V1 or V2)
                                 CloseIFF(iff);
                                 Close((BPTR) iff->iff_Stream);
                                 FreeIFF(iff);
@@ -4350,7 +4412,7 @@ void LoadConfig(Connection *cn)
     }
 
     if (b_done == TRUE) {
-        sprintf(temp, "STATUS: Old configuration format loaded from %s", g_config_filename);
+        snprintf(temp, sizeof(temp), "STATUS: Old configuration format loaded from %s", g_config_filename);
         MUI_AddStatusWindow(cn, temp);
     }
 }
@@ -4402,13 +4464,12 @@ void LoadConfig2(Connection *cn)
 
                             // Read configuration version
                             config_version = MemReadDword(&ptr);
-                            (void)config_version; // FIXME: Check version!
 
                             // Read number of records
                             nrecs =  MemReadDword(&ptr);
 
                             // Read the settings
-                            for (i = 0; i < nrecs; i++) {
+                            for (i = 0; i < nrecs && i < NUM_OF_SETTINGS; i++) {
                                 itemp = MemReadDword(&ptr);
                                 g_GlobalSettings.SettingsArray[i] = itemp;
                             }
@@ -4449,6 +4510,10 @@ void LoadConfig2(Connection *cn)
 
                             itemp = MemReadDword(&ptr);
                             MemReadString(g_AddressBook.Hosts[i].password, &ptr, itemp+1, PASSWORD_CONFIG_LEN);
+                            // Decode password if saved with V2 obfuscation
+                            if (config_version >= CONFIG_VERSION2) {
+                                ObfuscatePassword(g_AddressBook.Hosts[i].password, itemp);
+                            }
 #ifdef DEBUGLV2
                             printf("LoadConfig2(): strlen = %08x password = '%s'\n", itemp, g_AddressBook.Hosts[i].password);
 #endif
@@ -4496,7 +4561,7 @@ void LoadConfig2(Connection *cn)
     }
 
     if (b_done == TRUE) {
-        sprintf(temp, "STATUS: Configuration loaded from %s", g_config_filename);
+        snprintf(temp, sizeof(temp), "STATUS: Configuration loaded from %s", g_config_filename);
         MUI_AddStatusWindow(cn, temp);
     }
 }
@@ -4529,8 +4594,12 @@ BOOL SaveConfig()
             if(!OpenIFF(iff, IFFF_WRITE)) {
                 if(!PushChunk(iff, ID_MFTP, ID_FORM, IFFSIZE_UNKNOWN)) {
                     if(!PushChunk(iff, ID_MFTP, ID_GLOB, IFFSIZE_UNKNOWN)) {
-                        // Writes configuration version
-                        itemp = CONFIG_VERSION1;
+                        /* Note: IFF chunk data is stored in little-endian byte
+                         * order (non-standard for IFF, but maintained for
+                         * backward compatibility with existing config files). */
+
+                        // Writes configuration version (V2 = password obfuscation)
+                        itemp = CONFIG_VERSION2;
 #ifdef CPU_BIG_ENDIAN
                         BSwapDWORD(&to_write, &itemp);
 #else
@@ -4608,7 +4677,15 @@ BOOL SaveConfig()
                                 to_write = itemp;
 #endif
                                 WriteChunkBytes(iff, &to_write, sizeof(int));
-                                WriteChunkBytes(iff, g_AddressBook.Hosts[i].password, itemp);
+                                {
+                                    char enc_pw[PASSWORD_CONFIG_LEN];
+                                    int pwlen = caf_strlen(g_AddressBook.Hosts[i].password);
+                                    if (pwlen > PASSWORD_CONFIG_LEN - 1)
+                                        pwlen = PASSWORD_CONFIG_LEN - 1;
+                                    memcpy(enc_pw, g_AddressBook.Hosts[i].password, pwlen);
+                                    ObfuscatePassword(enc_pw, pwlen);
+                                    WriteChunkBytes(iff, enc_pw, itemp);
+                                }
 
                                 itemp = g_AddressBook.Hosts[i].conn_type;
 #ifdef CPU_BIG_ENDIAN
@@ -4656,6 +4733,10 @@ void RemoveLFCF(char *str)
 }
 
 
+/* Reads a 32-bit value in little-endian byte order from the config
+ * file buffer. Note: IFF convention is big-endian for chunk headers
+ * (handled by iffparse.library), but MarranoFTP uses little-endian
+ * for chunk payload data. Maintained for backward compatibility. */
 int MemReadDword(char **ptr)
 {
     char *p = *ptr;
@@ -4960,14 +5041,14 @@ void OnUploadBtnClick(Connection *cn)
                 continue;
 
             // Add remote makedir
-            sprintf(temp, "%s/%s", cn->rv.QueueBasePath, vcptr->name);
+            snprintf(temp, sizeof(temp), "%s/%s", cn->rv.QueueBasePath, vcptr->name);
             ptr = QueuePushAddStr(cn, &cn->queue_buffer, temp, CMD_REMOTE_MKDIR, 0, 0, FALSE);
             if (ptr == 0)
                 break;
 
             // Add local directory scanning
             get(cn->S_LEFT_VIEW_PATH, MUIA_String_Contents, &itemp);
-            sprintf(temp, "%s%s", (char *) itemp, vcptr->name);
+            snprintf(temp, sizeof(temp), "%s%s", (char *) itemp, vcptr->name);
             if (caf_getlastchar(lv->CurrentPath) == '/')
                 offset = 0;
             else
@@ -5092,9 +5173,9 @@ void OnLeftListviewDblClick(Connection *cn)
                 get(cn->S_LEFT_VIEW_PATH, MUIA_String_Contents, &itmp);
                 chr = caf_getlastchar((char *) itmp);
                 if (chr == ':' || chr == '/')
-                    sprintf(temp, "%s%s", (char *) itmp, vc->name);
+                    snprintf(temp, sizeof(temp), "%s%s", (char *) itmp, vc->name);
                 else
-                    sprintf(temp, "%s/%s", (char *) itmp, vc->name);
+                    snprintf(temp, sizeof(temp), "%s/%s", (char *) itmp, vc->name);
 
                 set(cn->S_LEFT_VIEW_PATH, MUIA_String_Contents, (IPTR) &temp);
                 RefreshLocalView(cn);
@@ -5123,9 +5204,9 @@ void OnRightListviewDblClick(Connection *cn)
                 get(cn->S_RIGHT_VIEW_PATH, MUIA_String_Contents, &itmp);
                 chr = caf_getlastchar((char *) itmp);
                 if (chr == ':' || chr == '/')
-                    sprintf(temp, "CWD %s%s", (char *) itmp, vc->name);
+                    snprintf(temp, sizeof(temp), "CWD %s%s", (char *) itmp, vc->name);
                 else
-                    sprintf(temp, "CWD %s/%s", (char *) itmp, vc->name);
+                    snprintf(temp, sizeof(temp), "CWD %s/%s", (char *) itmp, vc->name);
 
                 SendFtpCommand(cn, temp, FALSE);
             }
