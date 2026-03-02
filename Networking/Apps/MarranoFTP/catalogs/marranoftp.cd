@@ -1,0 +1,494 @@
+;
+; MarranoFTP catalog descriptor
+;
+; Application info
+;
+MSG_APP_TITLE (//)
+MarranoFTP
+;
+MSG_APP_DESCRIPTION (//)
+A very 'marrano' FTP client
+;
+; Menu items
+;
+MSG_MENU_FILE (//)
+File
+;
+MSG_MENU_OPEN_CONFIG (//)
+Open config file
+;
+MSG_MENU_SAVE_CONFIG (//)
+Save config file
+;
+MSG_MENU_EXPORT_CONFIG (//)
+Export config file
+;
+MSG_MENU_IMPORT_CONFIG (//)
+Import config file
+;
+MSG_MENU_ABOUT (//)
+About
+;
+MSG_MENU_QUIT (//)
+Quit
+;
+MSG_MENU_SETTINGS (//)
+Settings
+;
+MSG_MENU_GLOBAL_SETTINGS (//)
+Global settings
+;
+MSG_MENU_OPEN_ADDRESSBOOK (//)
+Open address book
+;
+; Main window
+;
+MSG_WIN_TITLE (//)
+MarranoFTP 0.72 (02.03.2026) \xa9 Stefano Crosara aka Suppah at marranosoft@gmail.com
+;
+; Main window buttons
+;
+MSG_BTN_DOWNLOAD (//)
+\33cDownload
+;
+MSG_BTN_UPLOAD (//)
+\33cUpload
+;
+MSG_BTN_REMOTE_DELETE (//)
+\33cRemote Delete
+;
+MSG_BTN_STOP (//)
+\33cStop
+;
+MSG_BTN_RUN_QUEUE (//)
+\33cRun Queue
+;
+MSG_BTN_STEP_QUEUE (//)
+\33cStep Queue
+;
+MSG_BTN_CLEAR_QUEUE (//)
+\33cClear Queue
+;
+MSG_BTN_REMOTE_RENAME (//)
+\33cRemote Rename
+;
+MSG_BTN_REMOTE_MAKEDIR (//)
+\33cRemote Makedir
+;
+MSG_BTN_DISCONNECT (//)
+\33cDisconnect
+;
+MSG_BTN_QUIT (//)
+\33cQuit
+;
+MSG_BTN_REFRESH_LEFT (//)
+\33cRefresh Left
+;
+MSG_BTN_REFRESH_RIGHT (//)
+\33cRefresh Right
+;
+MSG_BTN_CONNECT (//)
+\33c  Connect  
+;
+MSG_BTN_DISCONNECT_LABEL (//)
+\33c  Disconnect  
+;
+; Address book window
+;
+MSG_WIN_ADDRESSBOOK (//)
+Address book
+;
+MSG_LBL_ENTRY_NAME (//)
+Entry name
+;
+MSG_LBL_ADDRESS (//)
+Address
+;
+MSG_LBL_PORT (//)
+Port
+;
+MSG_LBL_USERNAME (//)
+Username
+;
+MSG_LBL_PASSWORD (//)
+Password
+;
+MSG_LBL_TRANSFER_TYPE (//)
+Transfer type
+;
+MSG_BTN_NEW (//)
+\33c New
+;
+MSG_BTN_ADD_UPDATE (//)
+\33c Add/Update
+;
+MSG_BTN_DELETE (//)
+\33c Delete
+;
+MSG_BTN_EXIT (//)
+\33c Exit
+;
+MSG_BTN_SAVE (//)
+\33c Save
+;
+MSG_BTN_CANCEL (//)
+\33c Cancel
+;
+; Error dialog
+;
+MSG_WIN_ERROR (//)
+Error!
+;
+MSG_ERR_MAX_HOSTS (//)
+Reached maximum number of hosts
+;
+; Global settings window
+;
+MSG_WIN_GLOBAL_SETTINGS (//)
+Global Settings
+;
+MSG_LBL_FILE_TRANSFER_TIMEOUT (//)
+\33cFile Transfer Timeout
+;
+MSG_LBL_CONNECTION_TIMEOUT (//)
+\33cConnection Timeout
+;
+MSG_LBL_QUEUE_PROCESSING (//)
+\33cQueue Processing
+;
+MSG_LBL_PARTIAL_FILES (//)
+\33cPartial files
+;
+; Cycle gadget entries
+;
+MSG_CONNTYPE_ACTIVE (//)
+Active
+;
+MSG_CONNTYPE_PASSIVE (//)
+Passive
+;
+MSG_QUEUE_STOP_AT_ERROR (//)
+Stop at error
+;
+MSG_QUEUE_PROCESS_ALL (//)
+Process All
+;
+MSG_PARTIAL_DELETE (//)
+Delete
+;
+MSG_PARTIAL_KEEP (//)
+Keep
+;
+; Queue view column headers
+;
+MSG_QCOL_COMMAND (//)
+Command
+;
+MSG_QCOL_NAME (//)
+Name
+;
+MSG_QCOL_STATUS (//)
+Status
+;
+; Queue command display strings
+;
+MSG_QCMD_DOWNLOAD (//)
+DOWNLOAD
+;
+MSG_QCMD_UPLOAD (//)
+UPLOAD
+;
+MSG_QCMD_REMOTE_DELETE (//)
+REMOTE DELETE
+;
+MSG_QCMD_RENAME (//)
+RENAME
+;
+MSG_QCMD_LOCAL_DIR_SCAN (//)
+LOCAL DIR SCAN
+;
+MSG_QCMD_REMOTE_DIR_SCAN (//)
+REMOTE DIR SCAN
+;
+MSG_QCMD_LOCAL_MKDIR (//)
+LOCAL MKDIR
+;
+MSG_QCMD_REMOTE_MKDIR (//)
+REMOTE MKDIR
+;
+MSG_QCMD_LOCAL_BASEPATH (//)
+LOCAL BASEPATH
+;
+MSG_QCMD_REMOTE_CHDIR (//)
+REMOTE CHDIR
+;
+MSG_QCMD_ERROR (//)
+ERROR
+;
+; Queue status display strings
+;
+MSG_QSTAT_COMPLETED (//)
+COMPLETED
+;
+MSG_QSTAT_ERROR (//)
+ERROR
+;
+MSG_QSTAT_QUEUED (//)
+QUEUED
+;
+; Status messages
+;
+MSG_STATUS_ERROR_TRANSFER_SOCKET (//)
+STATUS: Error on transfer socket
+;
+MSG_STATUS_TIMEOUT_RECV (//)
+STATUS: Closing transfer socket, data timeout, no more data was received in a timely fashion
+;
+MSG_STATUS_TIMEOUT_SEND (//)
+STATUS: Closing transfer socket, data timeout, no more data was sent in a timely fashion
+;
+MSG_STATUS_EXCEPTFD (//)
+STATUS: exceptfd was set, socket error
+;
+MSG_STATUS_CONNECT_TIMEOUT (//)
+STATUS: Connect timed out
+;
+MSG_STATUS_CONNECTED_DATA_PORT (//)
+STATUS: Connected to server's data port %d
+;
+MSG_STATUS_UNABLE_ACCEPT (//)
+STATUS: Unable to accept an incoming connection on port %d
+;
+MSG_STATUS_ACCEPTED (//)
+STATUS: Accepted an incoming connection on port %d
+;
+MSG_STATUS_LISTEN_TIMEOUT (//)
+STATUS: No connection happened in a timely fashion, closed listen socket
+;
+MSG_STATUS_ALREADY_CONNECTING (//)
+STATUS: Already trying to connect
+;
+MSG_STATUS_ABORTED (//)
+STATUS: Connection aborted
+;
+MSG_STATUS_NOTHING_TO_ABORT (//)
+STATUS: Nothing to abort
+;
+MSG_STATUS_REFRESHED_LOCAL (//)
+STATUS: Refreshed local view
+;
+MSG_STATUS_TRANSFER_WRITE_ERR (//)
+STATUS: Transfer failed, '%d' error during file write
+;
+MSG_STATUS_SHOULD_NOT_BE_HERE (//)
+STATUS: I SHOULD NOT BE HERE!
+;
+MSG_STATUS_REMOTE_CLOSED (//)
+STATUS: Remote closed transfer socket
+;
+MSG_STATUS_CLOSED_CONTROL (//)
+STATUS: closed control connection
+;
+MSG_STATUS_CANT_SEND (//)
+STATUS: cannot send command, waiting for ftp response to previous command
+;
+MSG_STATUS_CANT_SEND_NOT_CONNECTED (//)
+STATUS: cannot send command, not connected
+;
+MSG_STATUS_CANT_SEND_SELECT_FAILED (//)
+STATUS: cannot send command, select() failed
+;
+MSG_STATUS_CONNECTING_TO (//)
+STATUS: Connecting to %s (%s)
+;
+MSG_STATUS_CONNECTED_TO (//)
+STATUS: Connected to %s
+;
+MSG_STATUS_CONNECT_FAILED (//)
+STATUS: Connection failed, error: '%s'
+;
+MSG_STATUS_LISTENING (//)
+STATUS: Listening on port %d
+;
+MSG_STATUS_LISTEN_FAILED (//)
+STATUS: failed listening on port %d
+;
+MSG_STATUS_DISCONNECTED (//)
+STATUS: Disconnected
+;
+MSG_STATUS_TRANSFER_ABORTED (//)
+STATUS: Transfer aborted by user
+;
+MSG_STATUS_OPENLISTENSOCK_FAIL_LIST (//)
+STATUS: OpenListenSocket() failed, cannot listen on a socket, cannot get directory listing
+;
+MSG_STATUS_OPENLISTENSOCK_FAIL_XFER (//)
+STATUS: OpenListenSocket() failed, cannot listen on a socket, cannot request a file transfer
+;
+MSG_STATUS_SERVER_ERROR_PORT (//)
+STATUS: Server error encountered, Transfer failed, closed port %d
+;
+MSG_STATUS_SERVER_ERROR (//)
+STATUS: Server error encountered, Transfer failed
+;
+MSG_STATUS_FILE_UNAVAIL_PORT (//)
+STATUS: Server error encountered, file unavailable, closed port %d
+;
+MSG_STATUS_CONFIG_SAVED (//)
+STATUS: Configuration saved
+;
+MSG_STATUS_CONFIG_SAVE_ERROR (//)
+STATUS: Error while saving configuration
+;
+MSG_STATUS_CONFIG_LOADED (//)
+STATUS: Configuration loaded from %s
+;
+MSG_STATUS_CONFIG_LOADED_OLD (//)
+STATUS: Old configuration format loaded from %s
+;
+; Error messages
+;
+MSG_ERR_OPEN_ADDRESSBOOK (//)
+ERROR: Cannot open address book window
+;
+MSG_ERR_SELECT_SITE (//)
+ERROR: Please double click a site from the address book
+;
+MSG_ERR_BIND_FAILED (//)
+ERROR: Socket bind() failed
+;
+MSG_ERR_SOCKET_CREATE (//)
+ERROR: Socket creation error
+;
+MSG_ERR_CREATE_LOCAL_FILE (//)
+ERROR: Cannot create the local file
+;
+MSG_ERR_OPEN_LOCAL_FILE (//)
+ERROR: Cannot open local file '%s', Open() failed, error '%s'
+;
+MSG_ERR_SOCKET_ERROR (//)
+ERROR: socket error '%s'
+;
+MSG_ERR_TRANSFER_READ (//)
+ERROR: Transfer failed, '%d' error during file read
+;
+MSG_ERR_NOT_CONNECTED (//)
+ERROR: Not connected
+;
+MSG_ERR_QUEUE_STACK_FULL (//)
+ERROR: Queue items stack is full, aborting operation
+;
+MSG_ERR_QUEUE_BUFFER_FULL (//)
+ERROR: Queue buffer is full, cannot continue with directory scanning
+;
+MSG_ERR_QUEUE_PUSH_FAILED (//)
+ERROR: QueuePush() failed, queue items buffer is full, cannot continue with directory scanning
+;
+MSG_ERR_PASSIVE_INFO (//)
+ERROR: Cannot get passive connection information
+;
+MSG_ERR_EPSV_PARSE (//)
+ERROR: Cannot parse EPSV response
+;
+MSG_ERR_TEMP_BUFFER_FULL (//)
+ERROR: The temporary buffer is full, cannot continue with directory scanning
+;
+MSG_ERR_MAX_STACK (//)
+ERROR: Maximum number of stack entries reached, file queuing stopped
+;
+MSG_ERR_QUEUE_WINDOW_FULL (//)
+ERROR: Cannot update the queue window, the queue buffer is full
+;
+MSG_ERR_DISCONNECT_FIRST (//)
+ERROR: Disconnect first!
+;
+MSG_ERR_LOCAL_LISTVIEW_FULL (//)
+ERROR: Local listview buffer full, cannot continue directory scan
+;
+MSG_ERR_REMOTE_LISTVIEW_FULL (//)
+ERROR: Remote listview buffer full, cannot continue directory scan
+;
+MSG_ERR_LOAD_CONFIG (//)
+ERROR: Cannot load configuration file marranoftp.prefs
+;
+MSG_ERR_SETBLOCKING (//)
+ERROR: SetBlocking() failed, cannot change socket status
+;
+MSG_ERR_QUEUE_BUFFER_FULL_SHORT (//)
+ERROR: Queue buffer is full cannot continue
+;
+; Local file operation messages
+;
+MSG_LOCAL_ALLOC_DOSOBJECT (//)
+LOCAL: AllocDosObject() failed, cannot retrieve directory listing
+;
+MSG_LOCAL_EXAMINE_FAILED (//)
+LOCAL: Examine() failed, cannot get directory listing
+;
+MSG_LOCAL_EXAMINE_NOT_DIR (//)
+LOCAL: Examine() failed, the specified path is not a directory, fib->fib_DirEntryType = %d
+;
+MSG_LOCAL_LOCK_FAILED (//)
+LOCAL: cannot lock (GENERIC_READ) specified directory
+;
+MSG_LOCAL_ALLOC_DIRSCAN (//)
+LOCAL: AllocDosObject() failed, cannot proceed with the directory scan
+;
+MSG_LOCAL_LOCK_OF_FAILED (//)
+Locking of '%s' failed
+;
+; Warning messages
+;
+MSG_WARN_ALREADY_LISTENING (//)
+WARNING: Already listening for connection...
+;
+; Startup/fatal errors (printf)
+;
+MSG_FATAL_NO_BSDSOCKET (//)
+Cannot open bsdsocket.library
+;
+MSG_FATAL_NO_TIMER (//)
+Cannot open timer.device
+;
+MSG_FATAL_NO_APP (//)
+Cannot create application object.
+;
+MSG_FATAL_PARENTDIR (//)
+ParentDir() failed
+;
+MSG_FATAL_LOCK (//)
+Lock() failed
+;
+MSG_ERR_BUFFER_FULL_STR (//)
+ERROR: Buffer full in BufferAddStr()
+;
+MSG_ERR_BUFFER_FULL_STRUCT (//)
+ERROR: Buffer full in BufferAddStruct()
+;
+MSG_ERR_PUSHCHUNK_FAILED (//)
+ERROR: PushChunk() failed!, cannot save configuration file
+;
+MSG_ERR_OPENIFF_FAILED (//)
+ERROR: OpenIFF() failed!, cannot save configuration file
+;
+MSG_ERR_SAVE_CONFIG (//)
+ERROR: cannot save configuration file marranoftp.prefs
+;
+MSG_ERR_ALLOCIFF_FAILED (//)
+ERROR: AllocIFF() failed!, cannot save configuration file
+;
+MSG_FATAL_NO_APP_OBJECT (//)
+Failed to create the Application object
+;
+MSG_STATUS_TRANSFERING (//)
+Transfering ... %d bytes %d KB/Sec
+;
+MSG_STATUS_TRANSFERED (//)
+Transfered ... %d bytes %d KB/Sec
+;
+MSG_TAB_TRANSFER_QUEUE (//)
+Transfer Queue...
+;
+MSG_TAB_LOG (//)
+Log...
+;
