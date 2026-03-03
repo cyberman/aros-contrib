@@ -1,0 +1,47 @@
+
+include $(SRCDIR)/config/aros.cfg
+
+NOWARN_FLAGS := $(NOWARN_UNINITIALIZED) $(NOWARN_PARENTHESES)
+USER_CFLAGS := $(NOWARN_FLAGS)
+USER_CPPFLAGS := \
+    -D_GNU_SOURCE=1 \
+    -D__BSD_VISIBLE=1 \
+    -DHAVE_IOCTL \
+    -DHAVE_USLEEP
+USER_INCLUDES := -I$(SRCDIR)/$(CURDIR)/src
+
+#MM- contrib-networking-utils : contrib-networking-utils-iperf
+#MM contrib-networking-utils-iperf : \
+#MM     network-includes \
+#MM     arostcp-linklibs-netlib \
+#MM     arostcp-linklibs-miami \
+#MM     includes \
+#MM     linklibs
+
+IPERF_FILES := \
+    src/main \
+    src/cjson \
+    src/dscp \
+    src/iperf_api \
+    src/iperf_auth \
+    src/iperf_client_api \
+    src/iperf_error \
+    src/iperf_locale \
+    src/iperf_server_api \
+    src/iperf_tcp \
+    src/iperf_udp \
+    src/iperf_sctp \
+    src/iperf_util \
+    src/iperf_time \
+    src/iperf_pthread \
+    src/net \
+    src/tcp_info \
+    src/timer \
+    src/units
+
+%build_prog mmake=contrib-networking-utils-iperf \
+    progname=iperf3 targetdir=$(AROS_C) \
+    files="$(IPERF_FILES)" \
+    uselibs="miami net pthread"
+
+%common

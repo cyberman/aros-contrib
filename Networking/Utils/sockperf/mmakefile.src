@@ -1,0 +1,44 @@
+
+include $(SRCDIR)/config/aros.cfg
+
+NOWARN_FLAGS := $(NOWARN_UNINITIALIZED) $(NOWARN_PARENTHESES)
+USER_CXXFLAGS := $(NOWARN_FLAGS) -std=c++14
+USER_CPPFLAGS := \
+    -D_GNU_SOURCE=1 \
+    -D__BSD_VISIBLE=1 \
+    -DHAVE_IOCTL \
+    -DHAVE_USLEEP \
+    -DMessage=ExecMessage
+USER_LDFLAGS := -static-libstdc++
+USER_INCLUDES := -I$(SRCDIR)/$(CURDIR)/src
+
+#MM- contrib-networking-utils : contrib-networking-utils-sockperf
+#MM contrib-networking-utils-sockperf : \
+#MM     network-includes \
+#MM     arostcp-linklibs-netlib \
+#MM     arostcp-linklibs-miami \
+#MM     includes \
+#MM     linklibs
+
+SOCKPERF_CXXFILES := \
+    src/aopt \
+    src/client \
+    src/common \
+    src/defs \
+    src/iohandlers \
+    src/ip_address \
+    src/message \
+    src/os_abstract \
+    src/packet \
+    src/playback \
+    src/server \
+    src/sockperf \
+    src/ticks \
+    src/tls
+
+%build_prog mmake=contrib-networking-utils-sockperf \
+    progname=sockperf targetdir=$(AROS_C) \
+    files="" cxxfiles="$(SOCKPERF_CXXFILES)" \
+    uselibs="miami net pthread stdc"
+
+%common
