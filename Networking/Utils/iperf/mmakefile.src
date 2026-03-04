@@ -9,6 +9,9 @@ USER_CPPFLAGS := \
     -DHAVE_IOCTL \
     -DHAVE_USLEEP
 USER_INCLUDES := -iquote $(SRCDIR)/$(CURDIR)/src
+ifneq ($(TARGET_LIBATOMIC),)
+USER_LDFLAGS += $(TARGET_CXX_LIBS)
+endif
 
 #MM- contrib-networking-utils : contrib-networking-utils-iperf
 #MM contrib-networking-utils-iperf : \
@@ -16,7 +19,7 @@ USER_INCLUDES := -iquote $(SRCDIR)/$(CURDIR)/src
 #MM     arostcp-linklibs-netlib \
 #MM     arostcp-linklibs-miami \
 #MM     includes \
-#MM     linklibs
+#MM     linklibs linklibs-libatomic
 
 IPERF_FILES := \
     src/main \
