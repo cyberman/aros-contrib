@@ -2,7 +2,7 @@
 
 include $(SRCDIR)/config/aros-contrib.cfg
 
-#MM aros-tcpip-apps-wget-bin : includes linklibs contrib-networking-stacks-arostcp
+#MM contrib-networking-apps-wget-bin : includes linklibs contrib-networking-stacks-arostcp
 
 EXE := wget
 TARGETDIR := $(AROS_CONTRIB)/Networking/Apps/WGet
@@ -30,7 +30,7 @@ FILES := cmpt connect convert cookies \
       res retr safe-ctype snprintf url \
       utils version xmalloc
 
-%build_prog mmake=aros-tcpip-apps-wget-bin progname=$(EXE) files=$(FILES) \
+%build_prog mmake=contrib-networking-apps-wget-bin progname=$(EXE) files=$(FILES) \
     targetdir=$(TARGETDIR) nix=false
 
 %common
