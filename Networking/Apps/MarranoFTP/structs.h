@@ -111,6 +111,7 @@ typedef struct ClientInfo
     SOCKET              transfer_socket;        // The transfer socket returned by accept()
     int                 bytes_transfered;       // Transfer size
     int                 last_transfer_in_bytes;
+    int                 dl_buf_used;            // Download write buffer fill level
     BPTR                filehandle;
     BOOL                b_eof;
     int                 file_size, file_readed, file_sent;
@@ -232,6 +233,12 @@ typedef struct Connection
                         cmd_buffer,
                         queue_buffer,
                         temp_buffer;
+
+    /* Read-ahead buffer for command socket */
+#define CMD_READAHEAD_SIZE 4096
+    char                cmd_readahead[CMD_READAHEAD_SIZE];
+    int                 cmd_readahead_pos;
+    int                 cmd_readahead_len;
 
 #define QUEUE_SIZE 8192
     QueueItem           QueuedItems[QUEUE_SIZE+1];

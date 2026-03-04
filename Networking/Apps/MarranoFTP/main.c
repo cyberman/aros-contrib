@@ -20,6 +20,7 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <libraries/mui.h>
 #include <libraries/iffparse.h>
 #include <libraries/gadtools.h>
@@ -234,10 +235,14 @@ static struct NewMenu Menus[] = {
     EndMenu
 };
 
-#define STACK_BOTTOM (7)
-#define STACK_CURRENT (0)
-int recv_command_stack[STACK_BOTTOM+1];
-char sent_command_stack[STACK_BOTTOM+1][512];
+#define CMD_STACK_SIZE (8)
+#define CMD_STACK_MASK (CMD_STACK_SIZE - 1)
+#define RECV_STACK_CURRENT() recv_command_stack[(recv_stack_head - 1) & CMD_STACK_MASK]
+#define SENT_STACK_CURRENT() sent_command_stack[(sent_stack_head - 1) & CMD_STACK_MASK]
+int recv_command_stack[CMD_STACK_SIZE];
+char sent_command_stack[CMD_STACK_SIZE][512];
+int recv_stack_head;
+int sent_stack_head;
 
 TimerVal g_listen_timer, g_last_packet_transfered_timer, g_trying_connect_timer, g_transfer_start_timer, g_gui_update_timer;
 char g_temp[1024];
@@ -292,6 +297,8 @@ BOOL AbortFileTransfer(Connection *cn);
 int SockConnect(CSOCK *csock);
 void DisplaySockErrs(Connection *cn, CSOCK *csock);
 void AcknowledgeConnection(Connection *cn);
+static void TuneCmdSocket(SOCKET sock);
+static void TuneDataSocket(SOCKET sock);
 int GatherIpPortNumber(Connection *cn);
 
 void AfterRETR(Connection *cn);
@@ -773,11 +780,9 @@ static BOOL Init()
     caf_memset(&g_gui_update_timer, 0, sizeof(TimerVal));
     caf_memset(&sent_command_stack, 0, sizeof(sent_command_stack));
     caf_memset(&recv_command_stack, 0, sizeof(recv_command_stack));
+    recv_stack_head = 0;
+    sent_stack_head = 0;
     caf_memset(cn, 0, sizeof(Connection));
-    caf_memset(&cn->cmd_buffer, 0, sizeof(buffer));
-    caf_memset(&cn->transfer_buffer, 0, sizeof(buffer));
-    caf_memset(&cn->queue_buffer, 0, sizeof(buffer));
-    caf_memset(&cn->temp_buffer, 0, sizeof(buffer));
     caf_memset(&g_AddressBook, 0, sizeof(AddressBook));
     ci->cmd_socket = ci->listen_socket = ci->transfer_socket = cn->hi.pasvsettings.socket = INVALID_SOCKET;
 
@@ -1574,18 +1579,13 @@ int main(int argc,char *argv[])
                                                                 #endif
                                                                 
                                                                 snprintf(temp, 511, _(MSG_STATUS_CONNECTED_DATA_PORT), cn->hi.pasvsettings.port);
+                                                                TuneDataSocket(ci->transfer_socket);
                                                                 StartTimer(&g_transfer_start_timer);
                                                                 StartTimer(&g_last_packet_transfered_timer);
                                                                 MUI_AddStatusWindow(cn, temp);
                                                                 cn->ci.b_transfering = TRUE;
                                                                 cn->ci.b_transfered = FALSE;
                                                                 cn->ci.b_waitingfordataport = FALSE;
-                                                                
-                                                                // if (cn->ci.b_file_transfer == FALSE) {
-                                                                // ASD, this send has to be fixed ?
-                                                                // should i wait for write flag in socket?
-                                                                send(ci->transfer_socket, "\n\n", 2, 0);
-                            // }
                                                         }
                                                 } else {
 /********************************************* ACCEPT *****************************************/
@@ -1600,6 +1600,7 @@ int main(int argc,char *argv[])
                                                                         snprintf(temp, 511, _(MSG_STATUS_UNABLE_ACCEPT), ci->port);
                                                                         MUI_AddStatusWindow(cn, temp);
                                                                 } else {
+                                                                        TuneDataSocket(ci->transfer_socket);
                                                                         snprintf(temp, 511, _(MSG_STATUS_ACCEPTED), ci->port);
                                                                         StartTimer(&g_transfer_start_timer);
                                                                         StartTimer(&g_last_packet_transfered_timer);
@@ -1899,9 +1900,9 @@ void HandleDownload(Connection *cn)
                 DebugOutput("MainLoop(): FILE TRANSFER\n");
                 #endif
                 
-                // If we are transfering a file, we do not need a big buffer, stuff will be
-                // written to disk
-                res = recv(ci->transfer_socket, cn->transfer_buffer.ptr, cn->transfer_buffer.size, 0);
+                // If we are transfering a file, accumulate in buffer and flush when full
+                res = recv(ci->transfer_socket, cn->transfer_buffer.ptr + ci->dl_buf_used,
+                        cn->transfer_buffer.size - ci->dl_buf_used, 0);
         }
         
         if (res > 0) {
@@ -1912,15 +1913,20 @@ void HandleDownload(Connection *cn)
                 cn->ci.b_last_data = FALSE;
                 StartTimer(&g_last_packet_transfered_timer);
                 if (ci->b_file_transfer && ci->filehandle) {
-                        if (Write(ci->filehandle, cn->transfer_buffer.ptr, res) != res) {
-                                local_errno = IoErr();
-                                ci->b_file_transfer = FALSE;
-                                ci->filehandle = 0;
-                                AbortFileTransfer(cn);
-                                // SendFtpCommand(cn, "ABOR", FALSE);
-                                snprintf(temp, sizeof(temp), _(MSG_STATUS_TRANSFER_WRITE_ERR), local_errno);
-                                MUI_AddStatusWindow(cn, temp);
-                                cn->ci.b_last_data = TRUE;
+                        ci->dl_buf_used += res;
+                        /* Flush when buffer is at least half full */
+                        if (ci->dl_buf_used >= (int)(cn->transfer_buffer.size / 2)) {
+                                if (Write(ci->filehandle, cn->transfer_buffer.ptr, ci->dl_buf_used) != ci->dl_buf_used) {
+                                        local_errno = IoErr();
+                                        ci->b_file_transfer = FALSE;
+                                        ci->filehandle = 0;
+                                        ci->dl_buf_used = 0;
+                                        AbortFileTransfer(cn);
+                                        snprintf(temp, sizeof(temp), _(MSG_STATUS_TRANSFER_WRITE_ERR), local_errno);
+                                        MUI_AddStatusWindow(cn, temp);
+                                        cn->ci.b_last_data = TRUE;
+                                }
+                                ci->dl_buf_used = 0;
                         }
                 }
                 
@@ -1934,6 +1940,15 @@ void HandleDownload(Connection *cn)
                 
                 ci->bytes_transfered += res;
         } else {
+                /* Flush remaining download buffer to disk */
+                if (ci->b_file_transfer && ci->filehandle && ci->dl_buf_used > 0) {
+                        if (Write(ci->filehandle, cn->transfer_buffer.ptr, ci->dl_buf_used) != ci->dl_buf_used) {
+                                local_errno = IoErr();
+                                snprintf(temp, sizeof(temp), _(MSG_STATUS_TRANSFER_WRITE_ERR), local_errno);
+                                MUI_AddStatusWindow(cn, temp);
+                        }
+                        ci->dl_buf_used = 0;
+                }
                 cn->ci.b_last_data = TRUE;
                 if (res == SOCKET_ERROR) {
                         #ifdef DEBUG
@@ -1954,12 +1969,12 @@ void HandleDownload(Connection *cn)
                 cn->ci.b_transfered = TRUE;
                 ClearTransferFlags(cn);
                 #ifdef DEBUG
-                snprintf(temp, 511, "MainLoop(): recv_command_stack[STACK_CURRENT] = %d\n", recv_command_stack[STACK_CURRENT]);
+                snprintf(temp, 511, "MainLoop(): recv_command_stack[STACK_CURRENT] = %d\n", RECV_STACK_CURRENT());
                 DebugOutput(temp);
                 #endif
                 if (IsLastSentCmd("LIST")) {
                         // Last sent was directory listing
-                        if (GetCommandDigit(recv_command_stack[STACK_CURRENT], 1) == 2) {
+                        if (GetCommandDigit(RECV_STACK_CURRENT(), 1) == 2) {
                                 ProcessDirectoryData(cn);
                                 #ifdef DEBUG
                                 DebugOutput("MainLoop(): called ProcessDirectoryData() from g_b_last_data if()\n");
@@ -1967,7 +1982,7 @@ void HandleDownload(Connection *cn)
                         }
                 } else if (IsLastSentCmd("RETR")) {
                         // Last sent was RETR
-                        if (GetCommandDigit(recv_command_stack[STACK_CURRENT], 1) == 2)
+                        if (GetCommandDigit(RECV_STACK_CURRENT(), 1) == 2)
                                 AfterRETR(cn);
                 }
         }
@@ -1985,7 +2000,7 @@ void HandleUpload(Connection *cn)
         /* UPLOAD */
         local_errno = 0;
         if (ci->file_readed == 0) {
-                ci->file_readed = Read(ci->filehandle, cn->transfer_buffer.ptr, 65535);
+                ci->file_readed = Read(ci->filehandle, cn->transfer_buffer.ptr, cn->transfer_buffer.size);
                 if (ci->file_readed == 0)
                         ci->b_eof = TRUE;
 
@@ -2377,7 +2392,7 @@ BOOL CheckSocket(SOCKET socket)
         snprintf(temp, 511, "\nCheckSocket(): Error code(ret) = %d Error code(hex(ret)) %08x string = '%s'\n", ret, ret, GetErrnoDesc(ret));
         DebugOutput(temp);
 #endif
-        return TRUE;
+        return FALSE;
     } 
 #ifdef DEBUG
     else
@@ -2581,6 +2596,7 @@ int SendRETRCMD(Connection *cn, char *filename)
 
     ci->b_eof = FALSE;
     ci->b_file_transfer = TRUE;
+    ci->dl_buf_used = 0;
     cn->ci.b_last_data = FALSE;
     snprintf(temp, 511, "RETR %s", filename);
 #ifdef DEBUGLV2
@@ -2688,51 +2704,68 @@ int GetFtpCommand(struct buffer *buffer, Connection *cn)
 
     caf_memset(buffer->ptr, 0, buffer->size);
 
-//	while ((ret = ReadSocketNB(&buffer->ptr[readed], ci->cmd_socket, 1, g_GlobalSettings.socket_timeout, 0)) == TRUE) {
-    while (CanReadSocket(ci->cmd_socket, 0, 0) == SOCKET_SELECT_OK) {
-        ret = recv(ci->cmd_socket, &buffer->ptr[readed], 1, 0);
-        if (need_break_after_newline == FALSE) {
-            command = GetFtpCommandValue(&buffer->ptr[linestart]);
-            if (command > 0) {
-                // We found a valid command, go out
-                need_break_after_newline = TRUE;
+    while (1) {
+        /* Refill readahead buffer if empty */
+        if (cn->cmd_readahead_pos >= cn->cmd_readahead_len) {
+            if (CanReadSocket(ci->cmd_socket, 0, 0) != SOCKET_SELECT_OK)
+                break;
+            ret = recv(ci->cmd_socket, cn->cmd_readahead, CMD_READAHEAD_SIZE, 0);
+            if (ret <= 0) {
+                if (ret == 0) {
+                    CleanSockAndFlags(cn);
+                    MUI_AddStatusWindow(cn, (char *)_(MSG_STATUS_CLOSED_CONTROL));
+                }
+                break;
             }
+            cn->cmd_readahead_pos = 0;
+            cn->cmd_readahead_len = ret;
         }
 
-        if (buffer->ptr[readed] == '\n') {
-            // Terminate this line
-            buffer->ptr[readed] = 0;
+        /* Process bytes from readahead buffer */
+        while (cn->cmd_readahead_pos < cn->cmd_readahead_len) {
+            char ch = cn->cmd_readahead[cn->cmd_readahead_pos++];
 
-            // We found a new line
-            if (need_break_after_newline == FALSE) {
-                // If the server is still sending data, we add each line in the array
-                linestart = 1+readed;
+            if (ch == '\r')
+                continue;
+
+            if (ch == '\n') {
+                buffer->ptr[readed] = 0;
+
+                if (need_break_after_newline == FALSE) {
+                    if (command == 0) {
+                        command = GetFtpCommandValue(&buffer->ptr[linestart]);
+                        if (command > 0)
+                            need_break_after_newline = TRUE;
+                    }
+                }
+
+                if (need_break_after_newline) {
+                    done = TRUE;
+                    goto out;
+                }
+
+                linestart = readed + 1;
                 if (cn->rv.num_lines < 16384) {
                     cn->rv.num_lines++;
                     cn->rv.lines_start[cn->rv.num_lines-1] = linestart;
                 }
-            } else {
-                // Server finished sending data
-                done = TRUE;
-                break;
+                continue;
+            }
+
+            buffer->ptr[readed] = ch;
+            readed++;
+            if (readed >= buffer->size - 3)
+                goto out;
+
+            if (need_break_after_newline == FALSE && command == 0) {
+                command = GetFtpCommandValue(&buffer->ptr[linestart]);
+                if (command > 0)
+                    need_break_after_newline = TRUE;
             }
         }
-
-        // Skip carriage return
-        if (buffer->ptr[readed] == '\r')
-            continue;
-
-        readed++;
-        if (readed == buffer->size-3)
-            break;
     }
 
-    if (ret == 0) {
-        // Command socket has been closed, let's go away
-        CleanSockAndFlags(cn);
-        MUI_AddStatusWindow(cn, (char *)_(MSG_STATUS_CLOSED_CONTROL));
-    }
-
+out:
 #ifdef DEBUG
     if (!readed) {
         DebugOutput("GetFtpCommand(): Readed = 0\n");
@@ -3264,15 +3297,10 @@ BOOL GetConnectionInfo(ClientInfo *ci)
     struct sockaddr_in sockaddr;
     int status;
 
-    // Get the port of the socket 
+    // Get the port and IP of the cmd socket
     status = sizeof(struct sockaddr);
     getsockname(ci->cmd_socket, (struct sockaddr *) &sockaddr, &status);
     ci->port = htons(sockaddr.sin_port);
-
-    // Get the IP of the cmd socket because the stack won't return the ip information
-    // of an unconnected socket (MSDN)
-    status = sizeof(struct sockaddr);
-    getsockname(ci->cmd_socket, (struct sockaddr *) &sockaddr, &status);
     ci->ip_i = htonl(sockaddr.sin_addr.s_addr);
     caf_strncpy(ci->ip_s, IpToStr(ci->ip_i, ','), 31);
 
@@ -3395,12 +3423,9 @@ void RecvStackPush(int command)
 #ifdef DEBUGLV2
     char temp[512];
 #endif
-    int i;
 
-    for (i = 0; i < STACK_BOTTOM; i++)
-        recv_command_stack[i] = recv_command_stack[i+1];
-
-    recv_command_stack[STACK_CURRENT] = command;
+    recv_command_stack[recv_stack_head] = command;
+    recv_stack_head = (recv_stack_head + 1) & CMD_STACK_MASK;
 #ifdef DEBUGLV2
     snprintf(temp, 511, "RecvStackPush(): added cmd %d to stack\n", command);
     DebugOutput(temp);
@@ -3410,18 +3435,21 @@ void RecvStackPush(int command)
 void SentStackPush(char *CMD)
 {
     char temp[512];
-    int i;
+    int len;
 
-    sscanf(CMD, "%s", temp);
+    /* Extract first word from CMD */
+    for (len = 0; CMD[len] && CMD[len] != ' ' && CMD[len] != '\r' && CMD[len] != '\n' && len < 511; len++)
+        temp[len] = CMD[len];
+    temp[len] = '\0';
+
 #ifdef DEBUGLV2
     DebugOutput("SentStackPush(): Putting '");
     DebugOutput(temp);
     DebugOutput("' into the sent stack\n");
 #endif
-    for (i = 0; i < STACK_BOTTOM; i++)
-        strncpy(sent_command_stack[i], sent_command_stack[i+1], 511);
-
-    strncpy(sent_command_stack[STACK_CURRENT], temp, 511);
+    strncpy(sent_command_stack[sent_stack_head], temp, 511);
+    sent_command_stack[sent_stack_head][511] = '\0';
+    sent_stack_head = (sent_stack_head + 1) & CMD_STACK_MASK;
 }
 
 int GetCommandDigit(int command, int digit)
@@ -3542,10 +3570,10 @@ BOOL IsLastSentCmd(char *str)
     DebugOutput("IsLastSentCmd(");
     DebugOutput(str);
     DebugOutput("), sent_command_stack[STACK_CURRENT] = '"); 
-    DebugOutput(sent_command_stack[STACK_CURRENT]);
+    DebugOutput(SENT_STACK_CURRENT());
     DebugOutput("'\n");
 #endif
-    return (strncmp(sent_command_stack[STACK_CURRENT], str, 511) == 0) ? TRUE: FALSE;
+    return (strncmp(SENT_STACK_CURRENT(), str, strlen(str)) == 0) ? TRUE: FALSE;
 }
 
 void ClearTransferFlags(Connection *cn)
@@ -3714,7 +3742,6 @@ void QueueProcess(Connection *cn)
 void QueuePostProcess(Connection *cn)
 {
     // La coda e' stata tutta processata
-    RefreshLocalView(cn);
     QueueClear(cn);
     MUI_UpdateQueueListbox(cn, TRUE);
     RefreshLocalView(cn);
@@ -3911,6 +3938,19 @@ int InitiateFileDeletion(Connection *cn, char *filename)
     return ANSWER_PENDING;
 }
 
+static void TuneCmdSocket(SOCKET sock)
+{
+    int on = 1;
+    setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on));
+}
+
+static void TuneDataSocket(SOCKET sock)
+{
+    int bufsize = 262144; /* 256 KB */
+    setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &bufsize, sizeof(bufsize));
+    setsockopt(sock, SOL_SOCKET, SO_SNDBUF, &bufsize, sizeof(bufsize));
+}
+
 void AcknowledgeConnection(Connection *cn)
 {
     ClientInfo *ci = &cn->ci;
@@ -3918,6 +3958,7 @@ void AcknowledgeConnection(Connection *cn)
     // Command socket event happened, during connect() process it
     if (CheckConnect(cn) == TRUE) {
         // We are connected
+        TuneCmdSocket(ci->cmd_socket);
         GetConnectionInfo(ci);
     } else
         CleanSockAndFlags(cn);
@@ -4783,8 +4824,7 @@ void MUI_AddListboxCMDText(Connection *cn, char *text)
 {
     char temp[512];
 
-    caf_strncpy(temp, "COMMAND: ", 511);
-    caf_strncat(temp, text, 511);
+    snprintf(temp, sizeof(temp), "COMMAND: %s", text);
 
     DoMethod(cn->LV_STATUS, MUIM_NList_InsertSingle, (APTR *) temp, MUIV_NList_Insert_Bottom);
     DoMethod(cn->LV_STATUS, MUIM_NList_Jump, MUIV_List_Jump_Bottom);
@@ -4796,11 +4836,10 @@ void MUI_AddListboxASWText(Connection *cn)
     int i;
 
     for (i = 0; i < cn->rv.num_lines; i++) {
-        caf_strncpy(temp, "ANSWER: ", 511);
-        caf_strncat(temp, &cn->cmd_buffer.ptr[cn->rv.lines_start[i]], 511);
+        snprintf(temp, sizeof(temp), "ANSWER: %s", &cn->cmd_buffer.ptr[cn->rv.lines_start[i]]);
         DoMethod(cn->LV_STATUS, MUIM_NList_InsertSingle, (APTR *) temp, MUIV_NList_Insert_Bottom);
-        DoMethod(cn->LV_STATUS, MUIM_NList_Jump, MUIV_List_Jump_Bottom);
     }
+    DoMethod(cn->LV_STATUS, MUIM_NList_Jump, MUIV_List_Jump_Bottom);
 }
 
 void MUI_ClearListbox(Object *LBox)
