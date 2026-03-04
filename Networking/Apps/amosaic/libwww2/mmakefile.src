@@ -7,6 +7,9 @@ include $(SRCDIR)/config/aros-contrib.cfg
 #MM linklibs-www2 : includes
 #MM- includes-copy : libwww2-inc-directories
 
+#MM- contrib-networking-libs : \
+#MM     linklibs-www2
+
 FILES := \
 	aros_tcphack \
 	HTAABrow \
@@ -50,7 +53,8 @@ FILES := \
 #	HTFTP \
 
 NOWARN_FLAGS := $(NOWARN_FORMAT_CONTAINS_NUL)
-USER_CFLAGS += $(NOWARN_FLAGS) -DUSE_DIRENT -D__BSD_VISIBLE=1
+USER_CPPFLAGS := -DUSE_DIRENT -D__BSD_VISIBLE=1
+USER_CFLAGS += $(NOWARN_FLAGS)
 
 %build_linklib mmake=linklibs-www2 libname=www2 files=$(FILES)
 

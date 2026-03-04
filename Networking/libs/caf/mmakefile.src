@@ -8,6 +8,8 @@ FILES :=    debugging     \
 		   thread_helpers
  
 #MM contrib-networking-caf : libcaf-includes-copy
+#MM- contrib-networking-libs : \
+#MM     contrib-networking-caf
 
 USER_CPPFLAGS := -D__BSD_VISIBLE=1
 USER_CFLAGS := $(CFLAGS_GNU99)

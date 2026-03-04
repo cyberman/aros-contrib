@@ -47,7 +47,7 @@ NOWARN_FLAGS := $(NOWARN_PARENTHESES) $(NOWARN_FORMAT_CONTAINS_NUL) \
 USER_INCLUDES := -I$(SRCDIR)/$(CURDIR)/../libwww2
 USER_CFLAGS  += $(NOWARN_FLAGS)
 
-#MM mui-amosaic : includes linklibs linklibs-www2
+#MM mui-amosaic : includes linklibs network-linklibs linklibs-www2
 
 %build_prog mmake=mui-amosaic \
     progname=AMosaic targetdir=$(EXEDIR) \
