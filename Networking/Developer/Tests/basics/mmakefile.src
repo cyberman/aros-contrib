@@ -5,7 +5,7 @@ include $(SRCDIR)/config/aros-contrib.cfg
 TFILES = accept nonblock send sockbind
 ## Disabled TFILES = multi
 
-USER_CFLAGS := -D__BSD_VISIBLE=1
+USER_CPPFLAGS := -D__BSD_VISIBLE=1
 
 %build_progs mmake=contrib-net-developer-basictests \
     files="$(TFILES)" targetdir=$(AROS_CONTRIB)/Networking/Tests
