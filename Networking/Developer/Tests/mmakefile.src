@@ -8,7 +8,7 @@ STACKTESTS = test.gethostbyname
 
 TFILES = ping simpleping
 
-USER_CFLAGS := -D__BSD_VISIBLE=1
+USER_CPPFLAGS := -D__BSD_VISIBLE=1
 
 %build_progs mmake=contrib-net-developer-tests \
     files="$(TFILES) $(STACKTESTS) $(CLISERVTESTS)" \
