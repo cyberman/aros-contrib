@@ -1,4 +1,4 @@
 include $(SRCDIR)/config/aros-contrib.cfg
 
-%build_catalogs mmake=aros-tcpip-apps-marranoftp-catalogs \
+%build_catalogs mmake=contrib-networking-apps-marranoftp-catalogs \
     name=MarranoFTP subdir=Networking/Apps/MarranoFTP
