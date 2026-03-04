@@ -22,7 +22,7 @@ BUILDOWB := yes
 endif
 endif
  
-%build_prog mmake=aros-tcpip-apps-startowb \
+%build_prog mmake=contrib-networking-apps-startowb \
     files="startowb locale" targetdir=$(EXEDIR) \
     progname="startowb" uselibs="fontconfig xml2 freetype2.static z iconv pthread"
 
@@ -42,24 +42,24 @@ FILES :=               \
 	browserwindow      \
 	browserapp
 	
-#MM- aros-tcpip-apps: aros-tcpip-apps-owb-$(BUILDOWB)
-#MM- aros-tcpip-apps-owb-yes : aros-tcpip-apps-owb
+#MM- contrib-networking-apps: contrib-networking-apps-owb-$(BUILDOWB)
+#MM- contrib-networking-apps-owb-yes : contrib-networking-apps-owb
 
-#MM- aros-tcpip-apps-startowb : contrib-fontconfig
+#MM- contrib-networking-apps-startowb : contrib-fontconfig
 
-#MM- aros-tcpip-apps-owb : workbench-libs-jpeg-linklib   \
+#MM- contrib-networking-apps-owb : workbench-libs-jpeg-linklib   \
 #MM                        workbench-libs-png-linklib    \
 #MM                        workbench-libs-thread         \
-#MM                        aros-tcpip-apps-owb-webview   \
-#MM                        aros-tcpip-apps-owb-icon      \
-#MM                        aros-tcpip-apps-owb-catalogs  \
-#MM                        aros-tcpip-apps-owb-resources \
-#MM                        aros-tcpip-apps-owb-fonts     \
-#MM                        aros-tcpip-apps-owb-licenses  \
-#MM                        aros-tcpip-apps-startowb      \
-#MM                        aros-tcpip-apps-owb-quick
+#MM                        contrib-networking-apps-owb-webview   \
+#MM                        contrib-networking-apps-owb-icon      \
+#MM                        contrib-networking-apps-owb-catalogs  \
+#MM                        contrib-networking-apps-owb-resources \
+#MM                        contrib-networking-apps-owb-fonts     \
+#MM                        contrib-networking-apps-owb-licenses  \
+#MM                        contrib-networking-apps-startowb      \
+#MM                        contrib-networking-apps-owb-quick
 
-#MM aros-tcpip-apps-owb-resources : aros-tcpip-apps-owb-icons iconset-$(AROS_TARGET_ICONSET)-contrib-icons-owb aros-tcpip-apps-owb-readme
+#MM contrib-networking-apps-owb-resources : contrib-networking-apps-owb-icons iconset-$(AROS_TARGET_ICONSET)-contrib-icons-owb contrib-networking-apps-owb-readme
 
 I18N_LIBS=
 # ifneq ($(AROS_TARGET_CPU),arm)
@@ -78,17 +78,17 @@ USER_CFLAGS := -DZUNE_BUILTIN_SCROLLGROUP=0 -DMUIMASTER_YES_INLINE_STDARG \
 USER_INCLUDES := -I$(SRCDIR)/$(CURDIR)/tabs -I$(AROS_INCLUDES)/SDL \
     -I$(AROS_INCLUDES)/webkit-owb -I$(AROS_CONTRIB_INCLUDES)
 
-%build_prog mmake=aros-tcpip-apps-owb progname=owb targetdir=$(EXEDIR) \
+%build_prog mmake=contrib-networking-apps-owb progname=owb targetdir=$(EXEDIR) \
             files="$(FILES)" uselibs="webkit-owb webcore wtf jsc webkit-owb $(I18N_LIBS) codesets thread xml2 fontconfig freetype2.static SDL SDL_gfx GL png jpeg curl iconv z mui ssl crypto sqlite3 xslt thread stdc++ pthread"
 
 ICONS := back.png close.png download.png find.png forward.png go.png home.png preferences.png reload.png search.png stop.png bookmarks.png logo.png
 
-%copy_files_q mmake=aros-tcpip-apps-owb-icons files="$(ICONS)" src="icons" dst="$(EXEDIR)/resources"
+%copy_files_q mmake=contrib-networking-apps-owb-icons files="$(ICONS)" src="icons" dst="$(EXEDIR)/resources"
 
-%copy_files_q mmake=aros-tcpip-apps-owb-readme files="README" dst="$(EXEDIR)/"
+%copy_files_q mmake=contrib-networking-apps-owb-readme files="README" dst="$(EXEDIR)/"
 
-%copy_dir_recursive src="fonts" dst="$(EXEDIR)/fonts" mmake=aros-tcpip-apps-owb-fonts
-%copy_dir_recursive src="$(AROS_DEVELOPER)/share/webkit-owb/resources" dst="$(EXEDIR)/resources" mmake=aros-tcpip-apps-owb-resources
-%copy_dir_recursive src="licenses" dst="$(EXEDIR)/licenses" mmake=aros-tcpip-apps-owb-licenses
+%copy_dir_recursive src="fonts" dst="$(EXEDIR)/fonts" mmake=contrib-networking-apps-owb-fonts
+%copy_dir_recursive src="$(AROS_DEVELOPER)/share/webkit-owb/resources" dst="$(EXEDIR)/resources" mmake=contrib-networking-apps-owb-resources
+%copy_dir_recursive src="licenses" dst="$(EXEDIR)/licenses" mmake=contrib-networking-apps-owb-licenses
 
 %common

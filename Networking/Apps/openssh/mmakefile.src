@@ -3,7 +3,7 @@
 
 include $(SRCDIR)/config/aros-contrib.cfg
 
-#MM- aros-tcpip-apps-openssh : development-openssh
+#MM- contrib-networking-apps-openssh : development-openssh
 #MM- development-openssh : contrib-openssl
 
 REPOSITORIES := http://ftp.openbsd.org/pub/OpenBSD/OpenSSH/portable \

@@ -1,8 +1,8 @@
 
 include $(SRCDIR)/config/aros-contrib.cfg
 
-##MM- aros-tcpip-apps : aros-tcpip-apps-tinyirc
-#MM aros-tcpip-apps-tinyirc : includes linklibs
+##MM- contrib-networking-apps : contrib-networking-apps-tinyirc
+#MM contrib-networking-apps-tinyirc : includes linklibs
 
 NOWARN_FLAGS := $(NOWARN_UNINITIALIZED) $(NOWARN_PARENTHESES)
 USER_CFLAGS := $(NOWARN_FLAGS) -DAMITCP \
@@ -11,6 +11,6 @@ USER_CFLAGS := $(NOWARN_FLAGS) -DAMITCP \
 
 EXEDIR := $(AROS_CONTRIB)/Networking/Apps/TinyIRC
 
-%build_prog mmake=aros-tcpip-apps-tinyirc \
+%build_prog mmake=contrib-networking-apps-tinyirc \
     progname=TinyIRC targetdir=$(EXEDIR)/ \
     files=tinyirc uselibs="termcap"

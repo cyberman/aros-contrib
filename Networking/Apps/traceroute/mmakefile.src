@@ -14,15 +14,15 @@ USER_CFLAGS := \
         -DDIRECTED_BROADCAST \
         -D__BSD_VISIBLE=1
 
-##MM- aros-tcpip-apps : aros-tcpip-apps-traceroute
-#MM aros-tcpip-apps-traceroute : includes linklibs aros-tcpip-apps-traceroute-readme
+##MM- contrib-networking-apps : contrib-networking-apps-traceroute
+#MM contrib-networking-apps-traceroute : includes linklibs contrib-networking-apps-traceroute-readme
 
-#MM- aros-tcpip-apps : aros-tcpip-apps-marranoftp
+#MM- contrib-networking-apps : contrib-networking-apps-marranoftp
 
-%build_prog mmake=aros-tcpip-apps-traceroute \
+%build_prog mmake=contrib-networking-apps-traceroute \
     progname=traceroute targetdir=$(EXEDIR) \
     files=$(FILES)
 
-%copy_files_q mmake=aros-tcpip-apps-traceroute-readme files=$(DOCFILES) dst="$(EXEDIR)/"
+%copy_files_q mmake=contrib-networking-apps-traceroute-readme files=$(DOCFILES) dst="$(EXEDIR)/"
 
 %common

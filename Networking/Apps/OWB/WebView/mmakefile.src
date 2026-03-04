@@ -22,16 +22,16 @@ OWB_I18N_OPTS=
 #    endif
 # endif
 
-#MM- aros-tcpip-apps-owb-libs : contrib-fontconfig contrib-curl SDL-aros development-SDL_gfx-quick contrib-sqlite contrib-libxslt aros-tcpip-apps-owb-libs-$(AROS_TARGET_CPU)
-#MM- aros-tcpip-apps-owb-libs-i386: contrib-icu4c
-#MM- aros-tcpip-apps-owb-libs-x86_64: contrib-icu4c
-#MM aros-tcpip-apps-owb-webview : aros-tcpip-apps-owb-libs aros-tcpip-apps-owb-webview-fetch
+#MM- contrib-networking-apps-owb-libs : contrib-fontconfig contrib-curl SDL-aros development-SDL_gfx-quick contrib-sqlite contrib-libxslt contrib-networking-apps-owb-libs-$(AROS_TARGET_CPU)
+#MM- contrib-networking-apps-owb-libs-i386: contrib-icu4c
+#MM- contrib-networking-apps-owb-libs-x86_64: contrib-icu4c
+#MM contrib-networking-apps-owb-webview : contrib-networking-apps-owb-libs contrib-networking-apps-owb-webview-fetch
 
-%fetch mmake=aros-tcpip-apps-owb-webview-fetch archive=$(ARCHBASE) destination=$(PORTSDIR)/OWB \
+%fetch mmake=contrib-networking-apps-owb-webview-fetch archive=$(ARCHBASE) destination=$(PORTSDIR)/OWB \
     location=$(PORTSSOURCEDIR) archive_origins=$(REPOSITORIES) suffixes="tar.gz tar.bz2" \
     patches_specs=$(ARCHBASE)-aros.diff:$(ARCHBASE):-p1
 
-%create_patch mmake=aros-tcpip-apps-owb-webview-create-patch \
+%create_patch mmake=contrib-networking-apps-owb-webview-create-patch \
     archive=$(ARCHBASE) destination=$(PORTSDIR)/OWB
 
 NOWARN_CFLAGS := $(NOWARN_ERROR) $(NOWARN_UNUSED_VARIABLE) $(NOWARN_UNUSED_LOCAL_TYPEDEFS) $(NOWARN_WRITE_STRINGS)
@@ -75,6 +75,6 @@ OWB_OPTIONS := \
 # Uncomment to display verbose build info..
 ##OWB_OPTIONS := -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON $(OWB_OPTIONS)
 
-%build_with_cmake mmake=aros-tcpip-apps-owb-webview		\
+%build_with_cmake mmake=contrib-networking-apps-owb-webview		\
 	srcdir=$(OWB_SOURCE) prefix="$(AROS_DEVELOPER)"	\
 	extraoptions="$(OWB_OPTIONS)"
