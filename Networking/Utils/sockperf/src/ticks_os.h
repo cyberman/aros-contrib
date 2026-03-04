@@ -91,6 +91,10 @@ inline ticks_t os_gettimeoftsc() {
     unsigned long long ret;
     asm volatile("mftb %0" : "=r"(ret) :);
     return (ticks_t)ret;
+#elif defined(__powerpc__) || defined(__PPC__) || defined(__ppc__)
+    unsigned long ret;
+    asm volatile("mftb %0" : "=r"(ret) :);
+    return (ticks_t)ret;
 #elif defined(__s390__)
     unsigned long long ret;
     asm volatile("stck %0" : "=Q"(ret) : : "cc");
@@ -100,13 +104,16 @@ inline ticks_t os_gettimeoftsc() {
     asm volatile("isb" : : : "memory");
     asm volatile("mrs %0, cntvct_el0" : "=r" (ret));
     return ret;
-#elif defined(__arm__)
-    // so the compiler will not complain. for
-    // AArch32 compile, this inline is not used
-    // since rdtsc is only supported in an optional timer extension
+#elif defined(__riscv)
+    uint64_t ret;
+    asm volatile("rdcycle %0" : "=r"(ret));
+    return (ticks_t)ret;
+#elif defined(__arm__) || defined(__m68k__)
+    // No hardware cycle counter available on these architectures;
+    // returns 0 — use clock mode instead (b_no_rdtsc = true)
     upper_32 = lower_32 = 0;
 #else
-    // ReaD Time Stamp Counter (RDTCS)
+    // ReaD Time Stamp Counter (RDTSC) — x86/x86_64
     __asm__ __volatile__("rdtsc" : "=a"(lower_32), "=d"(upper_32));
 #endif
     // Return to user
