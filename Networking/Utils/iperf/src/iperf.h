@@ -159,10 +159,18 @@ static inline int iperf_daemon(int nochdir, int noclose) {
  * Atomic types highly desired, but if not, we approximate what we need
  * with normal integers and warn.
  */
+#ifndef HAVE_STDATOMIC_H
+#if defined(__has_include)
+#if __has_include(<stdatomic.h>)
+#define HAVE_STDATOMIC_H 1
+#endif
+#elif (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L && !defined(__STDC_NO_ATOMICS__))
+#define HAVE_STDATOMIC_H 1
+#endif
+#endif
 #ifdef HAVE_STDATOMIC_H
 #include <stdatomic.h>
 #else
-#warning "No <stdatomic.h> available."
 typedef uint64_t atomic_uint_fast64_t;
 #endif // HAVE_STDATOMIC_H
 
