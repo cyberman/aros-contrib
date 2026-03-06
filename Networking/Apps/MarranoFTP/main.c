@@ -1544,13 +1544,22 @@ int main(int argc,char *argv[])
                                         
                                         if (cn->ci.b_connected == TRUE) {
                                                 // We are connected, we can expect stuph from cmd socket
-                                                if (FD_ISSET(ci->cmd_socket, &readfd)) {
+                                                if (FD_ISSET(ci->cmd_socket, &readfd)
+                                                    || cn->cmd_readahead_pos < cn->cmd_readahead_len)
+                                                {
                                                         // Command socket event happened, after connect(), must be ftp stuph
-                                                        command = GetFtpCommand(&cn->cmd_buffer, cn);
-                                                        MUI_AddListboxASWText(cn);
-                                                        
-                                                        RecvStackPush(command);
-                                                        ProcessCommand(cn, command, &mui_res);
+                                                        // Also process if readahead buffer has leftover data from
+                                                        // a previous recv() that contained multiple responses.
+                                                        do {
+                                                                command = GetFtpCommand(&cn->cmd_buffer, cn);
+                                                                if (command <= 0)
+                                                                        break;
+                                                                MUI_AddListboxASWText(cn);
+
+                                                                RecvStackPush(command);
+                                                                ProcessCommand(cn, command, &mui_res);
+                                                        } while (cn->ci.b_connected
+                                                                 && cn->cmd_readahead_pos < cn->cmd_readahead_len);
                                                 }
                                         }
                                         
