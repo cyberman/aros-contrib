@@ -57,6 +57,29 @@
  */
 int readentropy(void *out, size_t outsize)
 {
+#ifdef __AROS__
+    /*
+     * AROS has no /dev/urandom.  Seed a simple PRNG from the system
+     * clock and fill the buffer.  This is adequate for iperf test
+     * cookies — cryptographic quality is not required.
+     */
+    static int seeded = 0;
+    unsigned char *p = (unsigned char *)out;
+    size_t i;
+
+    if (!outsize) return 0;
+
+    if (!seeded) {
+        struct timeval tv;
+        gettimeofday(&tv, NULL);
+        srand((unsigned)(tv.tv_sec ^ tv.tv_usec ^ (unsigned long)out));
+        seeded = 1;
+    }
+    for (i = 0; i < outsize; i++)
+        p[i] = (unsigned char)(rand() & 0xff);
+
+    return 0;
+#else
     static FILE *frandom;
     static const char rndfile[] = "/dev/urandom";
 
@@ -76,6 +99,7 @@ int readentropy(void *out, size_t outsize)
                       feof(frandom) ? "EOF" : strerror(errno));
     }
     return 0;
+#endif
 }
 
 
