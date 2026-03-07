@@ -2738,7 +2738,7 @@ int GetFtpCommand(struct buffer *buffer, Connection *cn)
                 continue;
 
             if (ch == '\n') {
-                buffer->ptr[readed] = 0;
+                buffer->ptr[readed++] = '\0';
 
                 if (need_break_after_newline == FALSE) {
                     if (command == 0) {
@@ -2753,7 +2753,8 @@ int GetFtpCommand(struct buffer *buffer, Connection *cn)
                     goto out;
                 }
 
-                linestart = readed + 1;
+                linestart = readed;
+                command = 0;
                 if (cn->rv.num_lines < 16384) {
                     cn->rv.num_lines++;
                     cn->rv.lines_start[cn->rv.num_lines-1] = linestart;
