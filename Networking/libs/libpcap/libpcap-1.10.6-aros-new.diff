@@ -1,0 +1,976 @@
+diff -ruN libpcap-1.10.6/aros_netcompat.c libpcap-1.10.6.aros/aros_netcompat.c
+--- libpcap-1.10.6/aros_netcompat.c	1970-01-01 00:00:00.000000000 +0000
++++ libpcap-1.10.6.aros/aros_netcompat.c	2026-03-07 20:55:10.797745100 +0000
+@@ -0,0 +1,112 @@
++/*
++ * aros_netcompat.c - POSIX network function wrappers for AROS
++ *
++ * Provides standard getaddrinfo(), freeaddrinfo(), gai_strerror(),
++ * and inet_pton() by calling through bsdsocket.library's RS_*
++ * Roadshow-compatible functions.
++ *
++ * These functions open bsdsocket.library on first use and cache
++ * the library base for subsequent calls.
++ */
++
++#define __AROS_NETCOMPAT_IMPL__
++
++#include <config.h>
++
++#include <sys/types.h>
++#include <sys/socket.h>
++#include <netdb.h>
++#include <string.h>
++#include <errno.h>
++
++#include <exec/types.h>
++#include <proto/exec.h>
++#include <aros/libcall.h>
++
++/*
++ * Direct AROS library call wrappers for RS_* functions.
++ *
++ * LVO offsets from clib/bsdsocket_protos.h:
++ *   RS_inet_pton     = 101, (LONG af/D0, const char *src/A0, void *dst/A1)
++ *   RS_freeaddrinfo  = 135, (struct addrinfo *ai/A0)
++ *   RS_getaddrinfo   = 136, (const char *hostname/A0, const char *servname/A1,
++ *                             const struct addrinfo *hints/A2,
++ *                             struct addrinfo **result/A3)
++ *   RS_gai_strerror  = 137, (LONG ecode/D0)
++ */
++
++#define AROS_RS_INET_PTON(sb, af, src, dst) \
++    AROS_LC3(LONG, RS_inet_pton, \
++        AROS_LCA(LONG, (af), D0), \
++        AROS_LCA(const char *, (src), A0), \
++        AROS_LCA(void *, (dst), A1), \
++        struct Library *, (sb), 101, BSDSocket)
++
++#define AROS_RS_FREEADDRINFO(sb, ai) \
++    AROS_LC1(void, RS_freeaddrinfo, \
++        AROS_LCA(struct addrinfo *, (ai), A0), \
++        struct Library *, (sb), 135, BSDSocket)
++
++#define AROS_RS_GETADDRINFO(sb, host, serv, hints, res) \
++    AROS_LC4(LONG, RS_getaddrinfo, \
++        AROS_LCA(const char *, (host), A0), \
++        AROS_LCA(const char *, (serv), A1), \
++        AROS_LCA(const struct addrinfo *, (hints), A2), \
++        AROS_LCA(struct addrinfo **, (res), A3), \
++        struct Library *, (sb), 136, BSDSocket)
++
++#define AROS_RS_GAI_STRERROR(sb, ecode) \
++    AROS_LC1(STRPTR, RS_gai_strerror, \
++        AROS_LCA(LONG, (ecode), D0), \
++        struct Library *, (sb), 137, BSDSocket)
++
++static struct Library *netcompat_sb = NULL;
++
++static struct Library *
++get_socket_base(void)
++{
++    if (netcompat_sb == NULL)
++        netcompat_sb = OpenLibrary("bsdsocket.library", 4);
++    return netcompat_sb;
++}
++
++int
++getaddrinfo(const char *hostname, const char *servname,
++    const struct addrinfo *hints, struct addrinfo **res)
++{
++    struct Library *sb = get_socket_base();
++    if (sb == NULL) {
++        errno = ENOENT;
++        return EAI_FAIL;
++    }
++    return (int)AROS_RS_GETADDRINFO(sb, hostname, servname, hints, res);
++}
++
++void
++freeaddrinfo(struct addrinfo *ai)
++{
++    struct Library *sb = get_socket_base();
++    if (sb == NULL)
++        return;
++    AROS_RS_FREEADDRINFO(sb, ai);
++}
++
++const char *
++gai_strerror(int ecode)
++{
++    struct Library *sb = get_socket_base();
++    if (sb == NULL)
++        return "bsdsocket.library not available";
++    return (const char *)AROS_RS_GAI_STRERROR(sb, ecode);
++}
++
++int
++inet_pton(int af, const char *src, void *dst)
++{
++    struct Library *sb = get_socket_base();
++    if (sb == NULL) {
++        errno = ENOENT;
++        return -1;
++    }
++    return (int)AROS_RS_INET_PTON(sb, af, src, dst);
++}
+diff -ruN libpcap-1.10.6/pcap-aros.c libpcap-1.10.6.aros/pcap-aros.c
+--- libpcap-1.10.6/pcap-aros.c	1970-01-01 00:00:00.000000000 +0000
++++ libpcap-1.10.6.aros/pcap-aros.c	2026-03-08 14:30:32.417603500 +0000
+@@ -0,0 +1,761 @@
++/*
++ * pcap-aros.c - AROS-specific packet capture module for libpcap
++ *
++ * Uses the AROSTCP BPF (Berkeley Packet Filter) subsystem accessed
++ * through bsdsocket.library's Roadshow-compatible API:
++ *   bpf_open(), bpf_close(), bpf_read(), bpf_write(), bpf_ioctl(),
++ *   bpf_set_notify_mask(), bpf_data_waiting()
++ *
++ * Copyright (c) 2024-2026 The AROS Development Team
++ * Based on pcap-bpf.c from the tcpdump project.
++ */
++
++#include <config.h>
++
++#include <sys/types.h>
++#include <sys/time.h>
++#include <sys/ioctl.h>
++#include <sys/socket.h>
++
++#include <net/if.h>
++
++#include <ctype.h>
++#include <errno.h>
++#include <signal.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <unistd.h>
++
++#include <exec/types.h>
++#include <proto/exec.h>
++#include <dos/dos.h>
++#include <aros/libcall.h>
++
++#include "pcap-int.h"
++#include "pcap-aros.h"
++
++/*
++ * Direct AROS library call wrappers for bsdsocket.library.
++ *
++ * We avoid including <defines/bsdsocket.h> because its macro
++ * definitions for socket(), etc. conflict with the standard Unix
++ * headers that the rest of libpcap uses.  Instead, we call through
++ * the library base directly using AROS_LC macros.
++ *
++ * LVO offsets from clib/bsdsocket_protos.h:
++ *   socket          = 5
++ *   IoctlSocket     = 19
++ *   CloseSocket     = 20
++ *   bpf_open        = 61
++ *   bpf_close       = 62
++ *   bpf_read        = 63
++ *   bpf_write       = 64
++ *   bpf_ioctl       = 67
++ *   bpf_data_waiting = 68
++ */
++
++#define AROS_BPF_OPEN(sb, ch) \
++    AROS_LC1(long, bpf_open, \
++        AROS_LCA(long, (ch), D0), \
++        struct Library *, (sb), 61, BSDSocket)
++
++#define AROS_BPF_CLOSE(sb, h) \
++    AROS_LC1(long, bpf_close, \
++        AROS_LCA(long, (h), D0), \
++        struct Library *, (sb), 62, BSDSocket)
++
++#define AROS_BPF_READ(sb, h, buf, len) \
++    AROS_LC3(long, bpf_read, \
++        AROS_LCA(long, (h), D0), \
++        AROS_LCA(void *, (buf), A0), \
++        AROS_LCA(long, (len), D1), \
++        struct Library *, (sb), 63, BSDSocket)
++
++#define AROS_BPF_WRITE(sb, h, buf, len) \
++    AROS_LC3(long, bpf_write, \
++        AROS_LCA(long, (h), D0), \
++        AROS_LCA(const void *, (buf), A0), \
++        AROS_LCA(long, (len), D1), \
++        struct Library *, (sb), 64, BSDSocket)
++
++#define AROS_BPF_IOCTL(sb, h, req, argp) \
++    AROS_LC3(long, bpf_ioctl, \
++        AROS_LCA(long, (h), D0), \
++        AROS_LCA(unsigned long, (req), D1), \
++        AROS_LCA(char *, (argp), A0), \
++        struct Library *, (sb), 67, BSDSocket)
++
++#define AROS_SOCKET(sb, d, t, p) \
++    AROS_LC3(int, socket, \
++        AROS_LCA(int, (d), D0), \
++        AROS_LCA(int, (t), D1), \
++        AROS_LCA(int, (p), D2), \
++        struct Library *, (sb), 5, BSDSocket)
++
++#define AROS_IOCTLSOCKET(sb, s, req, argp) \
++    AROS_LC3(int, IoctlSocket, \
++        AROS_LCA(int, (s), D0), \
++        AROS_LCA(unsigned long, (req), D1), \
++        AROS_LCA(char *, (argp), A0), \
++        struct Library *, (sb), 19, BSDSocket)
++
++#define AROS_CLOSESOCKET(sb, s) \
++    AROS_LC1(int, CloseSocket, \
++        AROS_LCA(int, (s), D0), \
++        struct Library *, (sb), 20, BSDSocket)
++
++/*
++ * Default buffer size for BPF reads.
++ * AROS BPF supports up to BPF_MAXBUFSIZE (32KB).
++ * We use the AROS default and let the user override via pcap_set_buffer_size().
++ */
++#define PCAP_AROS_DEFAULT_BUFSIZE	BPF_DFLTBUFSIZE
++
++/*
++ * We manage our own SocketBase for BPF operations.
++ * Each pcap handle opens and stores its own library base
++ * so that multiple handles can coexist.
++ *
++ * Each function that calls BPF creates a local:
++ *   struct Library *SocketBase = pa->socket_base;
++ * which is passed to the AROS_BPF_* / AROS_SOCKET / etc. macros.
++ */
++
++static int	pcap_activate_aros(pcap_t *);
++static int	pcap_read_aros(pcap_t *, int, pcap_handler, u_char *);
++static int	pcap_inject_aros(pcap_t *, const void *, int);
++static int	pcap_setfilter_aros(pcap_t *, struct bpf_program *);
++static int	pcap_stats_aros(pcap_t *, struct pcap_stat *);
++static void	pcap_cleanup_aros(pcap_t *);
++static int	pcap_getnonblock_aros(pcap_t *);
++static int	pcap_setnonblock_aros(pcap_t *, int);
++
++static int
++pcap_cant_set_rfmon_aros(pcap_t *p _U_)
++{
++	return (0);
++}
++
++/*
++ * pcapint_create_interface - create a pcap_t for live capture
++ *
++ * This is the entry point called by pcap_create() for real devices.
++ */
++pcap_t *
++pcapint_create_interface(const char *device _U_, char *ebuf)
++{
++	pcap_t *p;
++
++	p = PCAP_CREATE_COMMON(ebuf, struct pcap_aros);
++	if (p == NULL)
++		return (NULL);
++
++	p->activate_op = pcap_activate_aros;
++	p->can_set_rfmon_op = pcap_cant_set_rfmon_aros;
++	return (p);
++}
++
++/*
++ * pcap_activate_aros - activate a pcap handle for live capture
++ *
++ * Opens bsdsocket.library, allocates a BPF descriptor, binds it
++ * to the requested interface, and configures capture parameters.
++ */
++static int
++pcap_activate_aros(pcap_t *p)
++{
++	struct pcap_aros *pa = p->priv;
++	struct Library *SocketBase;
++	int handle;
++	u_int v;
++	struct bpf_version bv;
++	struct bpf_stat bs;
++	char ifname[IF_NAMESIZE];
++
++	/* Open bsdsocket.library for BPF access */
++	pa->socket_base = OpenLibrary("bsdsocket.library", 4);
++	if (pa->socket_base == NULL) {
++		snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
++		    "Cannot open bsdsocket.library v4");
++		return (PCAP_ERROR);
++	}
++	SocketBase = pa->socket_base;
++
++	/* Allocate a BPF descriptor */
++	handle = AROS_BPF_OPEN(SocketBase, 0);
++	if (handle < 0) {
++		snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
++		    "bpf_open: %s", strerror(errno));
++		goto bad;
++	}
++	pa->bpf_handle = handle;
++
++	/* Check BPF version */
++	if (AROS_BPF_IOCTL(SocketBase, handle, BIOCVERSION, (caddr_t)&bv) < 0) {
++		pcapint_fmt_errmsg_for_errno(p->errbuf, PCAP_ERRBUF_SIZE,
++		    errno, "BIOCVERSION");
++		goto bad;
++	}
++	if (bv.bv_major != BPF_MAJOR_VERSION ||
++	    bv.bv_minor < BPF_MINOR_VERSION) {
++		snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
++		    "kernel BPF version %d.%d, need %d.%d or later",
++		    bv.bv_major, bv.bv_minor,
++		    BPF_MAJOR_VERSION, BPF_MINOR_VERSION);
++		goto bad;
++	}
++
++	/*
++	 * Set buffer size.
++	 * Use the user-requested size if set, otherwise use default.
++	 * AROS BPF clamps between BPF_MINBUFSIZE and BPF_MAXBUFSIZE.
++	 */
++	if (p->opt.buffer_size != 0)
++		v = p->opt.buffer_size;
++	else
++		v = PCAP_AROS_DEFAULT_BUFSIZE;
++
++	if (AROS_BPF_IOCTL(SocketBase, handle, BIOCSBLEN, (caddr_t)&v) < 0) {
++		pcapint_fmt_errmsg_for_errno(p->errbuf, PCAP_ERRBUF_SIZE,
++		    errno, "BIOCSBLEN (%u)", v);
++		goto bad;
++	}
++	pa->bufsize = v;
++
++	/*
++	 * Bind to the network interface.
++	 * AROS bpf_setif takes interface name as a string (e.g., "eth0").
++	 */
++	pcapint_strlcpy(ifname, p->opt.device, sizeof(ifname));
++	if (AROS_BPF_IOCTL(SocketBase, handle, BIOCSETIF, (caddr_t)ifname) < 0) {
++		pcapint_fmt_errmsg_for_errno(p->errbuf, PCAP_ERRBUF_SIZE,
++		    errno, "BIOCSETIF: %s", p->opt.device);
++		p->errbuf[PCAP_ERRBUF_SIZE - 1] = '\0';
++		goto bad;
++	}
++
++	/* Get link-layer type */
++	if (AROS_BPF_IOCTL(SocketBase, handle, BIOCGDLT, (caddr_t)&v) < 0) {
++		pcapint_fmt_errmsg_for_errno(p->errbuf, PCAP_ERRBUF_SIZE,
++		    errno, "BIOCGDLT");
++		goto bad;
++	}
++	p->linktype = v;
++
++	/* Set promiscuous mode if requested */
++	if (p->opt.promisc) {
++		if (AROS_BPF_IOCTL(SocketBase, handle, BIOCPROMISC, NULL) < 0) {
++			pcapint_fmt_errmsg_for_errno(p->errbuf,
++			    PCAP_ERRBUF_SIZE, errno, "BIOCPROMISC");
++			goto bad;
++		}
++	}
++
++	/* Enable immediate mode — deliver packets as they arrive */
++	v = 1;
++	if (AROS_BPF_IOCTL(SocketBase, handle, BIOCIMMEDIATE, (caddr_t)&v) < 0) {
++		pcapint_fmt_errmsg_for_errno(p->errbuf, PCAP_ERRBUF_SIZE,
++		    errno, "BIOCIMMEDIATE");
++		goto bad;
++	}
++
++	/* Set timeout if specified, or use a default for signal checking */
++	{
++		struct timeval tv;
++		if (p->opt.timeout != 0) {
++			tv.tv_sec = p->opt.timeout / 1000;
++			tv.tv_usec = (p->opt.timeout % 1000) * 1000;
++		} else {
++			/* Default 250ms timeout so we can poll for Amiga signals
++			   (AROS has no async POSIX signal delivery) */
++			tv.tv_sec = 0;
++			tv.tv_usec = 250000;
++		}
++		if (AROS_BPF_IOCTL(SocketBase, handle, BIOCSRTIMEOUT, (caddr_t)&tv) < 0) {
++			pcapint_fmt_errmsg_for_errno(p->errbuf,
++			    PCAP_ERRBUF_SIZE, errno, "BIOCSRTIMEOUT");
++			goto bad;
++		}
++	}
++
++	/* Set snapshot length */
++	if (p->snapshot <= 0 || p->snapshot > MAXIMUM_SNAPLEN)
++		p->snapshot = MAXIMUM_SNAPLEN;
++
++	/*
++	 * Allocate the read buffer.
++	 * Must match the BPF kernel buffer size.
++	 */
++	p->bufsize = pa->bufsize;
++	p->buffer = malloc(p->bufsize);
++	if (p->buffer == NULL) {
++		pcapint_fmt_errmsg_for_errno(p->errbuf, PCAP_ERRBUF_SIZE,
++		    errno, "malloc");
++		goto bad;
++	}
++
++	/*
++	 * Register operation callbacks.
++	 */
++	p->fd = handle;
++	p->selectable_fd = -1;
++	p->read_op = pcap_read_aros;
++	p->inject_op = pcap_inject_aros;
++	p->setfilter_op = pcap_setfilter_aros;
++	p->setdirection_op = NULL;
++	p->set_datalink_op = NULL;
++	p->getnonblock_op = pcap_getnonblock_aros;
++	p->setnonblock_op = pcap_setnonblock_aros;
++	p->stats_op = pcap_stats_aros;
++	p->cleanup_op = pcap_cleanup_aros;
++
++	/* Initialize read state */
++	pa->bp = NULL;
++	pa->cc = 0;
++
++	/* Reset statistics */
++	pa->stat.ps_recv = 0;
++	pa->stat.ps_drop = 0;
++	pa->stat.ps_ifdrop = 0;
++
++	return (0);
++
++bad:
++	if (pa->bpf_handle >= 0) {
++		AROS_BPF_CLOSE(SocketBase, pa->bpf_handle);
++		pa->bpf_handle = -1;
++	}
++	if (pa->socket_base != NULL) {
++		CloseLibrary(pa->socket_base);
++		pa->socket_base = NULL;
++	}
++	return (PCAP_ERROR);
++}
++
++/*
++ * pcap_read_aros - read packets from the BPF device
++ *
++ * Reads packets from the BPF kernel buffer and dispatches them
++ * to the callback. The BPF buffer contains one or more packets,
++ * each preceded by a struct bpf_hdr.
++ *
++ * Returns the number of packets dispatched, 0 on timeout, or
++ * PCAP_ERROR on error.
++ */
++static int
++pcap_read_aros(pcap_t *p, int cnt, pcap_handler callback, u_char *user)
++{
++	struct pcap_aros *pa = p->priv;
++	struct Library *SocketBase = pa->socket_base;
++	int cc;
++	int n = 0;
++	register u_char *bp, *ep;
++	struct bpf_insn *fcode;
++
++	fcode = p->fcode.bf_insns;
++
++again:
++	/*
++	 * If we have data buffered from a previous read, process it.
++	 * Otherwise, do a new bpf_read.
++	 */
++	if (pa->cc == 0) {
++		cc = AROS_BPF_READ(SocketBase, pa->bpf_handle, (char *)p->buffer, p->bufsize);
++		if (cc < 0) {
++			if (errno == EWOULDBLOCK || errno == EINTR)
++				return (0);
++			pcapint_fmt_errmsg_for_errno(p->errbuf,
++			    PCAP_ERRBUF_SIZE, errno, "bpf_read");
++			return (PCAP_ERROR);
++		}
++		if (cc == 0) {
++			/*
++			 * Timeout — check for Amiga Ctrl-C signal.
++			 * AROS has no async POSIX signal delivery, so we
++			 * poll for SIGBREAKF_CTRL_C here and raise SIGINT
++			 * to invoke any registered signal handler (e.g.
++			 * tcpdump's cleanup routine), then break the loop.
++			 */
++			if (SetSignal(0, 0) & SIGBREAKF_CTRL_C) {
++				SetSignal(0, SIGBREAKF_CTRL_C);
++				raise(SIGINT);
++				p->break_loop = 1;
++				return (PCAP_ERROR_BREAK);
++			}
++			return (0);
++		}
++		bp = p->buffer;
++		pa->bp = (caddr_t)bp;
++		pa->cc = cc;
++	} else {
++		bp = (u_char *)pa->bp;
++		cc = pa->cc;
++	}
++
++	/*
++	 * Loop through each packet in the buffer.
++	 */
++	ep = bp + cc;
++	while (bp < ep) {
++		register struct bpf_hdr *bh;
++		register u_int caplen, datalen, hdrlen;
++		register u_char *pkt;
++
++		/*
++		 * Check for break request.
++		 */
++		if (p->break_loop) {
++			p->break_loop = 0;
++			/* Save remaining buffer position */
++			pa->bp = (caddr_t)bp;
++			pa->cc = (int)(ep - bp);
++			if (n == 0)
++				return (PCAP_ERROR_BREAK);
++			return (n);
++		}
++
++		bh = (struct bpf_hdr *)bp;
++		caplen = bh->bh_caplen;
++		datalen = bh->bh_datalen;
++		hdrlen = bh->bh_hdrlen;
++		pkt = bp + hdrlen;
++
++		/* Clip to snapshot length */
++		if (caplen > (u_int)p->snapshot)
++			caplen = p->snapshot;
++
++		/*
++		 * Apply the userland BPF filter, if any.
++		 * If the kernel filter is installed (via BIOCSETF),
++		 * this is redundant but harmless — the kernel already
++		 * filtered. If the filter couldn't be set in kernel
++		 * (shouldn't happen on AROS), this is our safety net.
++		 */
++		if (fcode == NULL ||
++		    pcapint_filter(fcode, pkt, datalen, caplen)) {
++			struct pcap_pkthdr pkthdr;
++
++			pa->stat.ps_recv++;
++			pkthdr.ts = bh->bh_tstamp;
++			pkthdr.caplen = caplen;
++			pkthdr.len = datalen;
++			(*callback)(user, &pkthdr, pkt);
++			n++;
++			if (cnt > 0 && n >= cnt) {
++				/* Advance past this packet */
++				bp += BPF_WORDALIGN(caplen + hdrlen);
++				pa->bp = (caddr_t)bp;
++				pa->cc = (int)(ep - bp);
++				return (n);
++			}
++		}
++
++		/* Advance to next packet in buffer */
++		bp += BPF_WORDALIGN(caplen + hdrlen);
++	}
++
++	/* Buffer exhausted */
++	pa->cc = 0;
++	pa->bp = NULL;
++
++	/*
++	 * If cnt is -1 (process all), try to read more data
++	 * only if we haven't processed any packets yet.
++	 * If cnt is 0, keep reading.
++	 */
++	if (cnt == 0 && n == 0)
++		goto again;
++
++	return (n);
++}
++
++/*
++ * pcap_inject_aros - inject a raw packet on the network
++ */
++static int
++pcap_inject_aros(pcap_t *p, const void *buf, int size)
++{
++	struct pcap_aros *pa = p->priv;
++	struct Library *SocketBase = pa->socket_base;
++	int ret;
++
++	ret = AROS_BPF_WRITE(SocketBase, pa->bpf_handle, (void *)buf, size);
++	if (ret < 0) {
++		pcapint_fmt_errmsg_for_errno(p->errbuf, PCAP_ERRBUF_SIZE,
++		    errno, "bpf_write");
++		return (PCAP_ERROR);
++	}
++	return (ret);
++}
++
++/*
++ * pcap_setfilter_aros - install a BPF filter in the kernel
++ *
++ * Pushes the compiled filter program to the kernel BPF device.
++ * The kernel applies the filter before copying packets to the buffer,
++ * which is much more efficient than userland filtering.
++ */
++static int
++pcap_setfilter_aros(pcap_t *p, struct bpf_program *fp)
++{
++	struct pcap_aros *pa = p->priv;
++	struct Library *SocketBase = pa->socket_base;
++
++	/*
++	 * First, install in the kernel for efficient filtering.
++	 */
++	if (AROS_BPF_IOCTL(SocketBase, pa->bpf_handle, BIOCSETF, (caddr_t)fp) < 0) {
++		pcapint_fmt_errmsg_for_errno(p->errbuf, PCAP_ERRBUF_SIZE,
++		    errno, "BIOCSETF");
++		return (PCAP_ERROR);
++	}
++
++	/*
++	 * Also install as the userland filter for pcap_offline_filter()
++	 * compatibility and as a safety net.
++	 */
++	if (pcapint_install_bpf_program(p, fp) < 0)
++		return (PCAP_ERROR);
++
++	/*
++	 * Discard any buffered packets that don't match the new filter.
++	 */
++	pa->cc = 0;
++	pa->bp = NULL;
++
++	return (0);
++}
++
++/*
++ * pcap_stats_aros - get capture statistics
++ */
++static int
++pcap_stats_aros(pcap_t *p, struct pcap_stat *ps)
++{
++	struct pcap_aros *pa = p->priv;
++	struct Library *SocketBase = pa->socket_base;
++	struct bpf_stat bs;
++
++	if (AROS_BPF_IOCTL(SocketBase, pa->bpf_handle, BIOCGSTATS, (caddr_t)&bs) < 0) {
++		pcapint_fmt_errmsg_for_errno(p->errbuf, PCAP_ERRBUF_SIZE,
++		    errno, "BIOCGSTATS");
++		return (PCAP_ERROR);
++	}
++
++	ps->ps_recv = bs.bs_recv;
++	ps->ps_drop = bs.bs_drop;
++	ps->ps_ifdrop = 0;
++
++	return (0);
++}
++
++/*
++ * pcap_cleanup_aros - release all resources
++ */
++static void
++pcap_cleanup_aros(pcap_t *p)
++{
++	struct pcap_aros *pa = p->priv;
++	struct Library *SocketBase = pa->socket_base;
++
++	if (pa->bpf_handle >= 0) {
++		AROS_BPF_CLOSE(SocketBase, pa->bpf_handle);
++		pa->bpf_handle = -1;
++	}
++
++	pcapint_cleanup_live_common(p);
++
++	if (pa->socket_base != NULL) {
++		CloseLibrary(pa->socket_base);
++		pa->socket_base = NULL;
++	}
++}
++
++/*
++ * Non-blocking mode.
++ * AROS BPF supports immediate mode (BIOCIMMEDIATE) which we enable
++ * by default. True non-blocking would use bpf_data_waiting() to poll.
++ */
++static int
++pcap_getnonblock_aros(pcap_t *p)
++{
++	/* We always run in immediate mode */
++	return (0);
++}
++
++static int
++pcap_setnonblock_aros(pcap_t *p, int nonblock)
++{
++	struct pcap_aros *pa = p->priv;
++	struct Library *SocketBase = pa->socket_base;
++
++	if (nonblock) {
++		/*
++		 * Set a zero timeout so bpf_read returns immediately.
++		 */
++		struct timeval tv;
++		tv.tv_sec = 0;
++		tv.tv_usec = 0;
++		if (AROS_BPF_IOCTL(SocketBase, pa->bpf_handle, BIOCSRTIMEOUT,
++		    (caddr_t)&tv) < 0) {
++			pcapint_fmt_errmsg_for_errno(p->errbuf,
++			    PCAP_ERRBUF_SIZE, errno, "BIOCSRTIMEOUT");
++			return (PCAP_ERROR);
++		}
++	} else {
++		/*
++		 * Restore the original timeout.
++		 */
++		if (p->opt.timeout != 0) {
++			struct timeval tv;
++			tv.tv_sec = p->opt.timeout / 1000;
++			tv.tv_usec = (p->opt.timeout % 1000) * 1000;
++			if (AROS_BPF_IOCTL(SocketBase, pa->bpf_handle, BIOCSRTIMEOUT,
++			    (caddr_t)&tv) < 0) {
++				pcapint_fmt_errmsg_for_errno(p->errbuf,
++				    PCAP_ERRBUF_SIZE, errno, "BIOCSRTIMEOUT");
++				return (PCAP_ERROR);
++			}
++		}
++	}
++	return (0);
++}
++
++/*
++ * get_if_flags_aros - get interface flags for device enumeration
++ */
++static int
++get_if_flags_aros(const char *name, bpf_u_int32 *flags, char *errbuf)
++{
++	/*
++	 * AROS doesn't provide media status info via ioctl.
++	 * Just leave the flags as-is.
++	 */
++	*flags |= PCAP_IF_CONNECTION_STATUS_NOT_APPLICABLE;
++	return (0);
++}
++
++/*
++ * pcapint_platform_finddevs - enumerate capture-capable interfaces
++ *
++ * Uses SIOCGIFCONF ioctl to discover network interfaces.
++ * Opens bsdsocket.library temporarily for the enumeration.
++ */
++int
++pcapint_platform_finddevs(pcap_if_list_t *devlistp, char *errbuf)
++{
++	struct Library *SocketBase;
++	int sock;
++	struct ifconf ifc;
++	char buf[4096];
++	struct ifreq *ifr;
++	int i, n;
++	int ret = 0;
++
++	SocketBase = OpenLibrary("bsdsocket.library", 4);
++	if (SocketBase == NULL) {
++		snprintf(errbuf, PCAP_ERRBUF_SIZE,
++		    "Cannot open bsdsocket.library for interface enumeration");
++		return (PCAP_ERROR);
++	}
++
++	sock = AROS_SOCKET(SocketBase, AF_INET, SOCK_DGRAM, 0);
++	if (sock < 0) {
++		pcapint_fmt_errmsg_for_errno(errbuf, PCAP_ERRBUF_SIZE,
++		    errno, "socket");
++		CloseLibrary(SocketBase);
++		return (PCAP_ERROR);
++	}
++
++	/* Get list of interfaces */
++	ifc.ifc_len = sizeof(buf);
++	ifc.ifc_buf = buf;
++	if (AROS_IOCTLSOCKET(SocketBase, sock, SIOCGIFCONF, (caddr_t)&ifc) < 0) {
++		pcapint_fmt_errmsg_for_errno(errbuf, PCAP_ERRBUF_SIZE,
++		    errno, "SIOCGIFCONF");
++		AROS_CLOSESOCKET(SocketBase, sock);
++		CloseLibrary(SocketBase);
++		return (PCAP_ERROR);
++	}
++
++	n = ifc.ifc_len / sizeof(struct ifreq);
++	ifr = ifc.ifc_req;
++
++	for (i = 0; i < n; i++, ifr++) {
++		struct ifreq flagreq;
++		struct sockaddr *addr = &ifr->ifr_addr;
++		struct sockaddr *netmask = NULL;
++		struct sockaddr *broadaddr = NULL;
++		struct sockaddr *dstaddr = NULL;
++		struct ifreq maskreq, brdreq;
++		bpf_u_int32 if_flags;
++		size_t addr_size;
++
++		/* Get interface flags */
++		memset(&flagreq, 0, sizeof(flagreq));
++		pcapint_strlcpy(flagreq.ifr_name, ifr->ifr_name,
++		    sizeof(flagreq.ifr_name));
++		if (AROS_IOCTLSOCKET(SocketBase, sock, SIOCGIFFLAGS, (caddr_t)&flagreq) < 0)
++			continue;
++		if_flags = flagreq.ifr_flags;
++
++		/* Skip interfaces that are down */
++		if (!(if_flags & IFF_UP))
++			continue;
++
++		addr_size = addr->sa_len ? addr->sa_len : sizeof(*addr);
++
++		/* Get netmask */
++		memset(&maskreq, 0, sizeof(maskreq));
++		pcapint_strlcpy(maskreq.ifr_name, ifr->ifr_name,
++		    sizeof(maskreq.ifr_name));
++		if (AROS_IOCTLSOCKET(SocketBase, sock, SIOCGIFNETMASK, (caddr_t)&maskreq) == 0)
++			netmask = &maskreq.ifr_addr;
++
++		/* Get broadcast address if applicable */
++		if (if_flags & IFF_BROADCAST) {
++			memset(&brdreq, 0, sizeof(brdreq));
++			pcapint_strlcpy(brdreq.ifr_name, ifr->ifr_name,
++			    sizeof(brdreq.ifr_name));
++			if (AROS_IOCTLSOCKET(SocketBase, sock, SIOCGIFBRDADDR,
++			    (caddr_t)&brdreq) == 0)
++				broadaddr = &brdreq.ifr_addr;
++		}
++
++		/* Get destination address for point-to-point */
++		if (if_flags & IFF_POINTOPOINT) {
++			struct ifreq dstreq;
++			memset(&dstreq, 0, sizeof(dstreq));
++			pcapint_strlcpy(dstreq.ifr_name, ifr->ifr_name,
++			    sizeof(dstreq.ifr_name));
++			if (AROS_IOCTLSOCKET(SocketBase, sock, SIOCGIFDSTADDR,
++			    (caddr_t)&dstreq) == 0)
++				dstaddr = &dstreq.ifr_addr;
++		}
++
++		if (pcapint_add_addr_to_if(devlistp, ifr->ifr_name,
++		    if_flags, get_if_flags_aros,
++		    addr, addr_size,
++		    netmask, netmask ? (netmask->sa_len ?
++		        netmask->sa_len : sizeof(*netmask)) : 0,
++		    broadaddr, broadaddr ? (broadaddr->sa_len ?
++		        broadaddr->sa_len : sizeof(*broadaddr)) : 0,
++		    dstaddr, dstaddr ? (dstaddr->sa_len ?
++		        dstaddr->sa_len : sizeof(*dstaddr)) : 0,
++		    errbuf) < 0) {
++			ret = PCAP_ERROR;
++			break;
++		}
++	}
++
++	AROS_CLOSESOCKET(SocketBase, sock);
++	CloseLibrary(SocketBase);
++	return (ret);
++}
++
++const char *
++pcap_lib_version(void)
++{
++	return (PCAP_VERSION_STRING);
++}
+diff -ruN libpcap-1.10.6/pcap-aros.h libpcap-1.10.6.aros/pcap-aros.h
+--- libpcap-1.10.6/pcap-aros.h	1970-01-01 00:00:00.000000000 +0000
++++ libpcap-1.10.6.aros/pcap-aros.h	2026-03-07 20:41:40.880914200 +0000
+@@ -0,0 +1,91 @@
++/*
++ * pcap-aros.h - AROS-specific definitions for libpcap
++ *
++ * Uses the AROSTCP BPF (Berkeley Packet Filter) subsystem accessed
++ * through bsdsocket.library's Roadshow-compatible API.
++ */
++
++#ifndef _PCAP_AROS_H
++#define _PCAP_AROS_H
++
++#include <exec/types.h>
++#include <sys/ioctl.h>
++
++/*
++ * BPF definitions for AROS.
++ * These match the AROSTCP Roadshow-compatible BPF interface.
++ * Normally these would come from <net/bpf.h> but AROS doesn't
++ * install that header to the standard include path.
++ */
++
++#ifndef BPF_ALIGNMENT
++#define BPF_ALIGNMENT	sizeof(long)
++#endif
++#ifndef BPF_WORDALIGN
++#define BPF_WORDALIGN(x)	(((x) + (BPF_ALIGNMENT - 1)) & ~(BPF_ALIGNMENT - 1))
++#endif
++
++#define BPF_MAXBUFSIZE	0x8000
++#define BPF_DFLTBUFSIZE	(4096)
++#define BPF_MINBUFSIZE	32
++
++struct bpf_hdr {
++	struct timeval	bh_tstamp;
++	u_int32_t	bh_caplen;
++	u_int32_t	bh_datalen;
++	u_short		bh_hdrlen;
++};
++
++struct bpf_stat {
++	u_int		bs_recv;
++	u_int		bs_drop;
++};
++
++struct bpf_version {
++	u_short		bv_major;
++	u_short		bv_minor;
++};
++
++#define BPF_MAJOR_VERSION	1
++#define BPF_MINOR_VERSION	1
++
++/* BPF ioctl commands (Roadshow-compatible) */
++#define BIOCGBLEN	_IOR('B', 102, u_int)
++#define BIOCSBLEN	_IOWR('B', 102, u_int)
++#define BIOCSETF	_IOW('B', 103, struct bpf_program)
++#define BIOCFLUSH	_IO('B', 104)
++#define BIOCPROMISC	_IO('B', 105)
++#define BIOCGDLT	_IOR('B', 106, u_int)
++#define BIOCGETIF	_IOR('B', 107, struct ifreq)
++#define BIOCSETIF	_IOW('B', 108, struct ifreq)
++#define BIOCSRTIMEOUT	_IOW('B', 109, struct timeval)
++#define BIOCGRTIMEOUT	_IOR('B', 110, struct timeval)
++#define BIOCGSTATS	_IOR('B', 111, struct bpf_stat)
++#define BIOCIMMEDIATE	_IOW('B', 112, u_int)
++#define BIOCVERSION	_IOR('B', 113, struct bpf_version)
++#define BIOCGHDRCMPLT	_IOR('B', 114, u_int)
++#define BIOCSHDRCMPLT	_IOW('B', 115, u_int)
++#define BIOCGSEESENT	_IOR('B', 116, u_int)
++#define BIOCSSEESENT	_IOW('B', 117, u_int)
++
++/* DLT types */
++#ifndef DLT_NULL
++#define DLT_NULL	0
++#endif
++#ifndef DLT_EN10MB
++#define DLT_EN10MB	1
++#endif
++
++/*
++ * Private data for the AROS pcap handle.
++ */
++struct pcap_aros {
++	struct pcap_stat stat;		/* capture statistics */
++	int		bpf_handle;		/* BPF descriptor handle from bpf_open() */
++	u_int		bufsize;		/* BPF kernel buffer size */
++	caddr_t		bp;			/* current read position in buffer */
++	u_int		cc;			/* remaining bytes in read buffer */
++	struct Library	*socket_base;		/* our bsdsocket.library base */
++};
++
++#endif /* _PCAP_AROS_H */

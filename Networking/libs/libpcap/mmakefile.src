@@ -1,0 +1,90 @@
+include $(SRCDIR)/config/aros-contrib.cfg
+
+LIBPCAPVERSION=1.10.6
+PCAPREPOSITORIES = https://www.tcpdump.org/release
+PCAPARCHBASE     := libpcap-$(LIBPCAPVERSION)
+PCAPARCHSUFFIX := "tar.xz"
+#PCAPPATCHSPEC := $(PCAPARCHBASE)-aros.diff:$(PCAPARCHBASE):-f,-p1
+PCAPARCHSRCDIR := $(PORTSDIR)/libpcap/$(PCAPARCHBASE)
+
+%fetch mmake=contrib-networking-libpcap-fetch archive=$(PCAPARCHBASE) destination=$(PORTSDIR)/libpcap \
+    location=$(PORTSSOURCEDIR) archive_origins=$(PCAPREPOSITORIES) suffixes=$(PCAPARCHSUFFIX) \
+    patches_specs=$(PCAPPATCHSPEC)
+
+%create_patch mmake=contrib-networking-libpcap-create-patch \
+    archive=$(PCAPARCHBASE) suffixes=$(PCAPARCHSUFFIX) \
+    srcdir="libpcap-$(LIBPCAPVERSION)" destination=$(PORTSDIR)/libpcap
+
+NOWARN_FLAGS := $(NOWARN_UNINITIALIZED) $(NOWARN_PARENTHESES) \
+    $(NOWARN_UNUSED_VARIABLE) $(NOWARN_UNUSED_FUNCTION) \
+    $(NOWARN_IMPLICIT_FALLTHROUGH)
+USER_CFLAGS := $(NOWARN_FLAGS) $(CFLAGS_GNU99)
+USER_CPPFLAGS := \
+    -D__BSD_VISIBLE=1 \
+    -DHAVE_CONFIG_H \
+    -D__AROS__
+USER_INCLUDES := \
+    -I$(SRCDIR)/$(CURDIR) \
+    -I$(PCAPARCHSRCDIR) \
+    -I$(PCAPARCHSRCDIR)/pcap
+
+PCAP_FILES := \
+    pcap \
+    pcap-common \
+    pcap-new \
+    pcap-util \
+    pcap-aros \
+    aros_netcompat \
+    bpf_filter \
+    bpf_dump \
+    bpf_image \
+    gencode \
+    grammar \
+    scanner \
+    optimize \
+    nametoaddr \
+    etherent \
+    fmtutils \
+    savefile \
+    sf-pcap \
+    sf-pcapng
+
+#MM contrib-networking-libpcap : \
+#MM     network-includes \
+#MM     includes \
+#MM     linklibs
+
+#MM- contrib-networking-libs : \
+#MM     contrib-networking-libpcap
+
+#MM contrib-networking-libpcap : contrib-networking-libpcap-fetch
+
+#MM- contrib-networking-libpcap-includes : contrib-networking-libpcap-fetch contrib-networking-libpcap-includes-copy
+
+%build_linklib mmake=contrib-networking-libpcap \
+    libname=pcap files="$(addprefix $(PCAPARCHSRCDIR)/,$(PCAP_FILES))"
+
+PCAP_INCLUDE_FILES := \
+    pcap.h \
+    pcap/pcap.h \
+    pcap/bpf.h \
+    pcap/dlt.h \
+    pcap/funcattrs.h \
+    pcap/pcap-inttypes.h \
+    pcap/compiler-tests.h \
+    pcap/namedb.h \
+    pcap/socket.h \
+    pcap/sll.h \
+    pcap/vlan.h \
+    pcap/usb.h \
+    pcap/bluetooth.h \
+    pcap/ipnet.h \
+    pcap/nflog.h \
+    pcap/can_socketcan.h \
+    pcap-bpf.h \
+    pcap-namedb.h
+
+#MM contrib-networking-libpcap-includes-copy
+%copy_includes path= dir= mmake=contrib-networking-libpcap-includes-copy includes="$(addprefix $(PCAPARCHSRCDIR)/,$(PCAP_INCLUDE_FILES))"
+
+%common
