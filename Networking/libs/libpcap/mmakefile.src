@@ -59,32 +59,37 @@ PCAP_FILES := \
 
 #MM contrib-networking-libpcap : contrib-networking-libpcap-fetch
 
-#MM- contrib-networking-libpcap-includes : contrib-networking-libpcap-fetch contrib-networking-libpcap-includes-copy
+#MM- contrib-networking-libpcap-includes : contrib-networking-libpcap-fetch contrib-networking-libpcap-includes-copy contrib-networking-libpcap-includes-extra-copy
 
 %build_linklib mmake=contrib-networking-libpcap \
     libname=pcap files="$(addprefix $(PCAPARCHSRCDIR)/,$(PCAP_FILES))"
 
 PCAP_INCLUDE_FILES := \
     pcap.h \
-    pcap/pcap.h \
-    pcap/bpf.h \
-    pcap/dlt.h \
-    pcap/funcattrs.h \
-    pcap/pcap-inttypes.h \
-    pcap/compiler-tests.h \
-    pcap/namedb.h \
-    pcap/socket.h \
-    pcap/sll.h \
-    pcap/vlan.h \
-    pcap/usb.h \
-    pcap/bluetooth.h \
-    pcap/ipnet.h \
-    pcap/nflog.h \
-    pcap/can_socketcan.h \
     pcap-bpf.h \
     pcap-namedb.h
 
+PCAP_EXTRA_INCLUDE_FILES := \
+    pcap.h \
+    bpf.h \
+    dlt.h \
+    funcattrs.h \
+    pcap-inttypes.h \
+    compiler-tests.h \
+    namedb.h \
+    socket.h \
+    sll.h \
+    vlan.h \
+    usb.h \
+    bluetooth.h \
+    ipnet.h \
+    nflog.h \
+    can_socketcan.h
+
 #MM contrib-networking-libpcap-includes-copy
-%copy_includes path= dir= mmake=contrib-networking-libpcap-includes-copy includes="$(addprefix $(PCAPARCHSRCDIR)/,$(PCAP_INCLUDE_FILES))"
+%copy_includes mmake=contrib-networking-libpcap-includes-copy dir=$(PCAPARCHSRCDIR) includes="$(PCAP_INCLUDE_FILES)"
+
+#MM contrib-networking-libpcap-includes-extra-copy
+%copy_includes mmake=contrib-networking-libpcap-includes-extra-copy dir=$(PCAPARCHSRCDIR)/pcap path=pcap includes="$(PCAP_EXTRA_INCLUDE_FILES)"
 
 %common
