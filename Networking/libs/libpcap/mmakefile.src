@@ -4,7 +4,7 @@ LIBPCAPVERSION=1.10.6
 PCAPREPOSITORIES = https://www.tcpdump.org/release
 PCAPARCHBASE     := libpcap-$(LIBPCAPVERSION)
 PCAPARCHSUFFIX := "tar.xz"
-#PCAPPATCHSPEC := $(PCAPARCHBASE)-aros.diff:$(PCAPARCHBASE):-f,-p1
+PCAPPATCHSPEC := $(PCAPARCHBASE)-aros.diff:$(PCAPARCHBASE):-f,-p1
 PCAPARCHSRCDIR := $(PORTSDIR)/libpcap/$(PCAPARCHBASE)
 
 %fetch mmake=contrib-networking-libpcap-fetch archive=$(PCAPARCHBASE) destination=$(PORTSDIR)/libpcap \
