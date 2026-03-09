@@ -39,8 +39,6 @@ PCAP_FILES := \
     bpf_dump \
     bpf_image \
     gencode \
-    grammar \
-    scanner \
     optimize \
     nametoaddr \
     etherent \
@@ -49,20 +47,24 @@ PCAP_FILES := \
     sf-pcap \
     sf-pcapng
 
+PCAP_GEN_FILES := \
+    grammar \
+    scanner
+
 #MM contrib-networking-libpcap : \
 #MM     network-includes \
 #MM     includes \
 #MM     linklibs
 
-#MM- contrib-networking-libs : \
-#MM     contrib-networking-libpcap
+##MM- contrib-networking-libs : \
+##MM     contrib-networking-libpcap
 
 #MM contrib-networking-libpcap : contrib-networking-libpcap-fetch
 
 #MM- contrib-networking-libpcap-includes : contrib-networking-libpcap-fetch contrib-networking-libpcap-includes-copy contrib-networking-libpcap-includes-extra-copy
 
-%build_linklib mmake=contrib-networking-libpcap \
-    libname=pcap files="$(addprefix $(PCAPARCHSRCDIR)/,$(PCAP_FILES))"
+#%build_linklib mmake=contrib-networking-libpcap \
+#    libname=pcap files="$(addprefix $(PCAPARCHSRCDIR)/,$(PCAP_FILES)) $(PCAP_GEN_FILES)"
 
 PCAP_INCLUDE_FILES := \
     pcap.h \
